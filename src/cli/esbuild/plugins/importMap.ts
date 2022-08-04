@@ -1,4 +1,4 @@
-import { Plugin } from "https://deno.land/x/esbuild@v0.14.50/mod.d.ts";
+import { Plugin } from "https://deno.land/x/esbuild@v0.14.53/mod.d.ts";
 import { resolve, dirname } from "https://deno.land/std@0.150.0/path/mod.ts";
 
 

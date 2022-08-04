@@ -1,4 +1,4 @@
-import { serve } from "https://deno.land/x/tano@0.0.1/lib/server.ts";
+import { serve } from "https://deno.land/x/tano@0.0.2/src/lib/server.ts";
 
 
 await serve({

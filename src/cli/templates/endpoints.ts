@@ -30,7 +30,7 @@ export const endpointsTemplate = (workspace: Workspace) => {
          *  This file is generated automatically, changes will be overwritten! *
          * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * */
 
-        import { Endpoint } from "https://deno.land/x/tano@0.0.1/lib/server.ts";
+        import { Endpoint } from "https://deno.land/x/tano@0.0.2/src/lib/server.ts";
         ${imports}
 
         export const endpoints: Record<string, Endpoint> = {\n${endpoints}\n};

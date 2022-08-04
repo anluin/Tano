@@ -1,8 +1,8 @@
-import { Component } from "https://deno.land/x/tano@0.0.1/lib/react.ts";
+import { Component } from "https://deno.land/x/tano@0.0.2/src/lib/react.ts";
 
 import { isInstalled } from "$utils/pwa.ts";
 
-// @deno-types="https://deno.land/x/tano@0.0.1/lib/types/svg.d.ts"
+// @deno-types="https://deno.land/x/tano@0.0.2/src/lib/types/svg.d.ts"
 import IosShareSvg from "../static/images/ios-share.svg";
 
 

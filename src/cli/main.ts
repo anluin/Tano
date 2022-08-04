@@ -2,7 +2,8 @@ import { normalize, join, relative, resolve } from "https://deno.land/std@0.150.
 import { exists } from "https://deno.land/std@0.150.0/fs/exists.ts";
 import { walk, WalkOptions } from "https://deno.land/std@0.150.0/fs/walk.ts";
 
-import * as esbuild from "https://deno.land/x/esbuild@v0.14.50/mod.js";
+import * as esbuild from "https://deno.land/x/esbuild@v0.14.53/mod.js";
+import { httpImports } from "https://deno.land/x/esbuild_plugin_http_imports@v1.2.4/index.ts";
 
 import { routesTemplate } from "./templates/routes.ts";
 import { staticsTemplate } from "./templates/statics.ts";
@@ -261,6 +262,7 @@ await esbuild.build({
         await importMapPlugin({
             importMapFilePath,
         }),
+        httpImports(),
         await svgLoaderPlugin(),
     ],
     entryPoints: [ mainTsxFilePath ],
@@ -308,6 +310,7 @@ await esbuild.build({
         await importMapPlugin({
             importMapFilePath,
         }),
+        httpImports(),
         await svgLoaderPlugin(),
         await endpointsPlugin({
             routesDirectoryPath,

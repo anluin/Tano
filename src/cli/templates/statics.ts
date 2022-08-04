@@ -21,7 +21,7 @@ export const staticsTemplate = ({ statics }: Workspace) => {
          *  This file is generated automatically, changes will be overwritten! *
          * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * */
 
-        import { StaticFile } from "https://deno.land/x/tano@0.0.1/lib/server.ts";
+        import { StaticFile } from "https://deno.land/x/tano@0.0.2/src/lib/server.ts";
 
 
         const cache: Record<string, Uint8Array> = {};

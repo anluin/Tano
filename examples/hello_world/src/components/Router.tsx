@@ -1,4 +1,4 @@
-import { Component, Effect, Hooks } from "https://deno.land/x/tano@0.0.1/lib/react.ts";
+import { Component, Effect, Hooks } from "https://deno.land/x/tano@0.0.2/src/lib/react.ts";
 import { routes } from "$build/routes.ts";
 
 

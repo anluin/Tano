@@ -40,7 +40,7 @@ export const pwaComponentTemplate = (properties: Properties) => {
          *  This file is generated automatically, changes will be overwritten! *
          * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * */
 
-        import { Component } from "https://deno.land/x/tano@0.0.1/lib/react.ts";
+        import { Component } from "https://deno.land/x/tano@0.0.2/src/lib/react.ts";
 
 
         export const ProgressiveWebApp: Component = () => {

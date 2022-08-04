@@ -1,4 +1,4 @@
-import { Plugin } from "https://deno.land/x/esbuild@v0.14.50/mod.d.ts";
+import { Plugin } from "https://deno.land/x/esbuild@v0.14.53/mod.d.ts";
 import { tsx } from "../../utils/formatting.ts";
 
 
@@ -21,7 +21,7 @@ export const svgLoaderPlugin = async (): Promise<Plugin> => {
 
                 return ({
                     contents: tsx`
-                        import { Component } from "https://deno.land/x/tano@0.0.1/lib/react.ts";
+                        import { Component } from "https://deno.land/x/tano@0.0.2/src/lib/react.ts";
 
                         const render: Component = () => {
                             return (

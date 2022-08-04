@@ -1,4 +1,4 @@
-import { render } from "https://deno.land/x/tano@0.0.1/lib/client.ts";
+import { render } from "https://deno.land/x/tano@0.0.2/src/lib/client.ts";
 
 import { ProgressiveWebApp } from "$build/components/ProgressiveWebApp.tsx";
 import { AddToHomescreen } from "$components/AddToHomescreen.tsx";

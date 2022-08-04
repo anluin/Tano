@@ -20,7 +20,7 @@ export const routesTemplate = (workspace: Workspace, lazyImport: boolean = true)
         );
 
         return ts`
-            import { Component, Effect } from "https://deno.land/x/tano@0.0.1/lib/react.ts";
+            import { Component, Effect } from "https://deno.land/x/tano@0.0.2/src/lib/react.ts";
 
 
             const lazy = (promise: Promise<{ render: Component<any> }>, properties: any) => {
@@ -61,7 +61,7 @@ export const routesTemplate = (workspace: Workspace, lazyImport: boolean = true)
              *  This file is generated automatically, changes will be overwritten! *
              * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * */
 
-            import { Component } from "https://deno.land/x/tano@0.0.1/lib/react.ts";
+            import { Component } from "https://deno.land/x/tano@0.0.2/src/lib/react.ts";
             ${imports}
             
             export const routes: Record<string, Component> = {\n${routes}\n};

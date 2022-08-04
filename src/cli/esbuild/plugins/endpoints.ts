@@ -1,4 +1,4 @@
-import { Plugin } from "https://deno.land/x/esbuild@v0.14.50/mod.d.ts";
+import { Plugin } from "https://deno.land/x/esbuild@v0.14.53/mod.d.ts";
 import { ts } from "../../utils/formatting.ts";
 import { relative, resolve } from "https://deno.land/std@0.150.0/path/mod.ts";
 import { identifierForPath, patternsForPath, withoutExtension } from "../../utils/helper.ts";
@@ -37,7 +37,7 @@ export const endpointsPlugin = async (properties: Properties): Promise<Plugin> =
 
                 return ({
                     contents: ts`
-                        import { createEndpoint } from "https://deno.land/x/tano@0.0.1/lib/client.ts";
+                        import { createEndpoint } from "https://deno.land/x/tano@0.0.2/src/lib/client.ts";
 
                         ${wrapper}
                     `,

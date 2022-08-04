@@ -1,0 +1,106 @@
+html, body {
+    overscroll-behavior-y: none;
+    position: fixed;
+    overflow: hidden;
+    background: #000;
+    color: #fff;
+}
+
+body {
+    font-family: Roboto, sans-serif;
+    width: 100%;
+    height: 100%;
+    background: transparent;
+}
+
+* {
+    margin: 0;
+    padding: 0;
+    white-space: pre;
+}
+
+main {
+    padding: 16px;
+    display: grid;
+    grid-gap: 16px;
+}
+
+section {
+    padding: 16px;
+    border-radius: 8px;
+    background: #212121;
+}
+
+.add-to-homescreen {
+    display: grid;
+    justify-content: center;
+    flex-direction: column;
+    position: fixed;
+    bottom: 0;
+    left: 0;
+    right: 0;
+    padding: 16px 16px 24px;
+    pointer-events: none;
+}
+
+@keyframes add-to-homescreen {
+    0% {
+        opacity: 0;
+    }
+    2% {
+        opacity: 1;
+    }
+    98% {
+        opacity: 1;
+    }
+    100% {
+        opacity: 0;
+    }
+}
+
+.add-to-homescreen > div {
+    position: relative;
+    background: #1F1F1F;
+    border-radius: 12px;
+    padding: 8px 12px;
+    align-self: center;
+    box-shadow: inset #3f3f3f 0 .25px 0 0;
+    opacity: 0;
+    animation: add-to-homescreen 10s;
+    animation-fill-mode: forwards;
+}
+
+.add-to-homescreen > div > div {
+    display: flex;
+    align-items: end;
+    white-space: nowrap;
+}
+
+@media (orientation: portrait) {
+    .add-to-homescreen > div:before {
+        content: "";
+        position: absolute;
+        bottom: -.5em;
+        left: calc(50% - 0.5em);
+        padding: .5em;
+        background: inherit;
+        border: inherit;
+        border-right: 0;
+        border-bottom: 0;
+        transform: rotate(45deg);
+    }
+}
+
+.add-to-homescreen > div > div > img {
+    margin: 0 4px;
+}
+
+.add-to-homescreen .highlight {
+    color: #4392F6;
+    margin: 0 4px 0;
+    font-weight: 450;
+}
+
+a {
+    color: inherit;
+}

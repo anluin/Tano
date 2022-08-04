@@ -1,0 +1,13 @@
+{
+  "compilerOptions": {
+    "lib": [
+      "deno.ns",
+      "DOM",
+      "DOM.iterable"
+    ],
+    "jsx": "react",
+    "jsxFactory": "h",
+    "jsxFragmentFactory": "f"
+  },
+  "importMap": "config/imports.json"
+}

@@ -1,8 +1,0 @@
-{
-  "imports": {
-    "https://deno.land/x/tano@0.0.2/": "../../../",
-    "$components/": "../src/components/",
-    "$utils/": "../src/utils/",
-    "$build/": "../build/"
-  }
-}

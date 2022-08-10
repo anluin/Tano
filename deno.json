@@ -1,12 +1,14 @@
 {
-  "compilerOptions": {
-    "lib": [
-      "deno.ns",
-      "DOM",
-      "DOM.iterable"
-    ],
-    "jsx": "react",
-    "jsxFactory": "h",
-    "jsxFragmentFactory": "f"
-  }
+    "compilerOptions": {
+        "lib": [
+            "deno.ns",
+            "esnext.asyncIterable",
+            "DOM",
+            "DOM.iterable",
+            "DOM.asyncIterable"
+        ],
+        "jsx": "react",
+        "jsxFactory": "h",
+        "jsxFragmentFactory": "f"
+    }
 }

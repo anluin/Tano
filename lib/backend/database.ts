@@ -126,6 +126,14 @@ export const db2cv = (type: ColumnType, value: unknown): string | number | null 
         }
     }
 
+    if ("unique" in type) {
+        if (value !== null) {
+            return db2cv(type.unique, value);
+        } else {
+            return null;
+        }
+    }
+
     throw new Error();
 };
 

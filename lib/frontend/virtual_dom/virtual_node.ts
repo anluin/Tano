@@ -1,5 +1,5 @@
 import { InflatedElementNode, InflatedFragmentNode, InflatedNode, InflatedTextNode } from "./inflated_node.ts";
-import { collectEffects, createEffect, createSignal, preventEffect, Signal } from "../signal.ts";
+import { collectEffects, createEffect, preventEffect, Signal } from "../signal.ts";
 import { normalize, ParentComponent } from "../render.ts";
 
 

@@ -20,7 +20,7 @@ export const renderRoutes = (properties: Properties) => {
         );
 
         return ts`
-            import { createSignal, createEffect, pathname, createElement, Component } from "https://deno.land/x/tano@0.0.6/lib/frontend/mod.ts";
+            import { createSignal, createEffect, pathname, createElement, Component } from "https://deno.land/x/tano@0.0.7/lib/frontend/mod.ts";
 
 
             export const currentRoute = createSignal<JSX.Element>(undefined);
@@ -29,19 +29,19 @@ export const renderRoutes = (properties: Properties) => {
                 ${exports}
             };
 
-            export const findRoute = async (pathname: string): Promise<[({ render: Component }), Record<string, string>] | undefined> => {
+            export const findRoute = async (pathname: string): Promise<[ ({ render: Component }), Record<string, string> ] | undefined> => {
                 for (const pattern in routes) {
                     const regex = new RegExp(\`^\${pattern.replaceAll(/:(\\w+)/gm, \`(?<$1>[^/]*)\`)}$\`);
                     const result = regex.exec(pathname);
-                    
+
                     if (result) {
-                        return [await routes[pattern], result.groups ?? {}];
+                        return [ await routes[pattern], result.groups ?? {} ];
                     }
                 }
             };
 
             createEffect(pathname, async pathname => {
-                const [route, parameters] = await findRoute(pathname) ?? await findRoute("/error/404");
+                const [ route, parameters ] = await findRoute(pathname) ?? await findRoute("/error/404");
 
                 if (route) {
                     currentRoute.set(createElement(route.render, parameters));
@@ -66,7 +66,7 @@ export const renderRoutes = (properties: Properties) => {
         );
 
         return ts`
-            import { createSignal, createEffect, pathname, createElement, Component } from "https://deno.land/x/tano@0.0.6/lib/frontend/mod.ts";
+            import { createSignal, createEffect, pathname, createElement, Component } from "https://deno.land/x/tano@0.0.7/lib/frontend/mod.ts";
 
             ${imports}
 

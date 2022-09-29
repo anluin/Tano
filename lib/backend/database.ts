@@ -158,7 +158,7 @@ export const generateTableQuery = <Columns extends Record<string, ColumnType>>(t
             ${columnQueries.join(",\n            ")}
         );
 
-        CREATE TRIGGER IF NOT EXISTS update_updatedAt_on_${tableName}_Trigger
+        CREATE TRIGGER IF NOT EXISTS update_${tableName}
             AFTER
         UPDATE
             On ${tableName}

@@ -86,7 +86,7 @@ export class Signal<T> {
 
     static normalizeObject<T>(data: Record<keyof T, Signal<T[keyof T]>>): Record<keyof T, T[keyof T]> {
         if (data && typeof data === "object") {
-            return Object.fromEntries(Object.entries(data).map(([key, value]) => [key, Signal.normalize(value)])) as Record<keyof T, T[keyof T]>;
+            return Object.fromEntries(Object.entries(data).map(([ key, value ]) => [ key, Signal.normalize(value) ])) as Record<keyof T, T[keyof T]>;
         } else {
             return data;
         }

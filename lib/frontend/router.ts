@@ -1,7 +1,7 @@
 import { createEffect, createSignal } from "./signal.ts";
 
 
-export const pathname = createSignal(location.pathname);
+export const pathname = createSignal(location?.pathname);
 
 export const handleClickOnAnchor = (event: MouseEvent) => {
     let target: HTMLElement | null = event.target as HTMLElement;

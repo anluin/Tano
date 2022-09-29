@@ -76,7 +76,7 @@ export const magicPlugin = async ({ importMapFilePath, backendDirectoryPath, end
 
                     return ({
                         contents: ts`
-                            import { createEndpoint } from "https://deno.land/x/tano@0.0.9/lib/frontend/mod.ts";
+                            import { createEndpoint } from "https://deno.land/x/tano@0.0.10/lib/frontend/mod.ts";
 
                             ${wrapper}
                         `,

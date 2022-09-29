@@ -158,11 +158,14 @@ export const generateTableQuery = <Columns extends Record<string, ColumnType>>(t
             ${columnQueries.join(",\n            ")}
         );
 
-        CREATE TRIGGER IF NOT EXISTS update_updatedAt_Trigger
-            AFTER UPDATE
-                                                On ${tableName}
+        CREATE TRIGGER IF NOT EXISTS update_updatedAt_on_${tableName}_Trigger
+            AFTER
+        UPDATE
+            On ${tableName}
         BEGIN
-        UPDATE ${tableName} SET updatedAt = CURRENT_TIMESTAMP WHERE id = NEW.id;
+        UPDATE ${tableName}
+        SET updatedAt = CURRENT_TIMESTAMP
+        WHERE id = NEW.id;
         END;
     `;
 };
@@ -217,8 +220,7 @@ export const Model = <Columns extends Record<string, ColumnType>>(tableName: str
                         const [ [ value ] ] = database.query(`
                             SELECT ${columnName}
                             FROM ${tableName}
-                            WHERE id IS ${this.id}
-                                LIMIT 1
+                            WHERE id IS ${this.id} LIMIT 1
                         `);
 
                         return db2cv(columnType, value) ?? undefined;
@@ -271,8 +273,19 @@ export const Model = <Columns extends Record<string, ColumnType>>(tableName: str
             (this as unknown as { deletedAt: undefined }).deletedAt = undefined;
         }
 
-        delete() {
-            (this as unknown as { deletedAt: "CURRENT_TIMESTAMP" }).deletedAt = "CURRENT_TIMESTAMP";
+        delete(options: { hard?: boolean } = {}) {
+            if (options.hard === true) {
+                if (this.id !== undefined) {
+                    database.query(`
+                        DELETE
+                        FROM ${tableName}
+                        WHERE id IS ?;
+                    `, [ this.id ]);
+                    Object.assign(this, { id: -1 });
+                }
+            } else {
+                (this as unknown as { deletedAt: "CURRENT_TIMESTAMP" }).deletedAt = "CURRENT_TIMESTAMP";
+            }
         }
     }
 

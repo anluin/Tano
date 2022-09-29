@@ -1,4 +1,4 @@
-import { createEffect, createSignal } from "https://deno.land/x/tano@0.0.5/lib/frontend/mod.ts";
+import { createEffect, createSignal } from "https://deno.land/x/tano@0.0.6/lib/frontend/mod.ts";
 
 
 export const pathname = createSignal(location.pathname);

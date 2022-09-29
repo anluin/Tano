@@ -54,7 +54,7 @@ try {
 }
 
 await Deno.writeTextFile(injectFilePath, ts`
-    export { createElement, fragmentType } from "https://deno.land/x/tano@0.0.5/lib/frontend/mod.ts";
+    export { createElement, fragmentType } from "https://deno.land/x/tano@0.0.6/lib/frontend/mod.ts";
 `);
 
 const endpoints: Record<string, string[]> = {};

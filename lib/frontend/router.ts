@@ -20,7 +20,7 @@ export const handleClickOnAnchor = (event: MouseEvent) => {
     }
 };
 
-if (window.csr) {
+if (csr) {
     addEventListener("popstate", () => {
         pathname.value = location?.pathname;
     });

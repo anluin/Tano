@@ -1,455 +1,279 @@
 import { DB } from "https://deno.land/x/sqlite@v3.5.0/mod.ts";
 
 
-await Deno.mkdir("./data", { recursive: true });
+const database = new DB("data/database.sqlite");
 
-const database = new DB("data/database.db");
+export type References = { references: { tableName: string } };
+export type Optional<Type extends ColumnType> = { optional: Type };
+export type Unique<Type extends ColumnType> = { unique: Type };
 
-type ColumnModifier = undefined | "nullable" | "autoincrement" | "primary key" | "unique";
-type ColumnType = "integer" | "string" | "datetime" | (() => Table<Record<string, ColumnData>>) | (() => [Table<Record<string, ColumnData>>]);
+export type ColumnType =
+    typeof Number |
+    typeof String |
+    typeof Date |
+    { references: { tableName: string } } |
+    { optional: ColumnType } |
+    { unique: ColumnType };
 
-type ColumnData<Type = ColumnType, Modifier = ColumnModifier, DefaultValue = unknown> = {
-    type: Type,
-    modifiers: Modifier[],
-    defaultValue: DefaultValue,
-};
+export type ColumnType2TypeScript<T extends ColumnType> =
+    T extends typeof Number ? number :
+        T extends typeof String ? string :
+            T extends typeof Date ? Date | "CURRENT_TIMESTAMP" :
+                T extends References ? number :
+                    T extends Optional<infer T> ? ColumnType2TypeScript<T> :
+                        T extends Unique<infer T> ? ColumnType2TypeScript<T> :
+                            never;
 
-type Column<Name extends string, Type, Modifier, DefaultValue> = {
-    [K in Name]: ColumnData<Type, Modifier, DefaultValue>
-};
+export type KeyNotToOptional<O, K extends keyof O> = O[K] extends Optional<infer _> ? never : K;
+export type KeyToOptional<O, K extends keyof O> = O[K] extends Optional<infer _> ? K : never;
 
-type UnwrapSetupColumnType<Type> =
-    Type extends "string" ? string :
-    Type extends "integer" ? number :
-    Type extends "datetime" ? Date | "CURRENT_TIMESTAMP" :
-    Type extends (() => Table<infer Columns>) ? Entry<Columns> :
-    Type extends (() => [Table<infer Columns>]) ? Entry<Columns>[]:
-        never;
+export const References = (tableName: string): References =>
+    ({ references: { tableName } });
 
-type UnwrapColumnType<Type> =
-    Type extends "string" ? string :
-    Type extends "integer" ? number :
-    Type extends "datetime" ? Date:
-    Type extends (() => Table<infer Columns>) ? Entry<Columns> :
-    Type extends (() => [Table<infer Columns>]) ? Entry<Columns>[]:
-        never;
+export const Optional = <Type extends ColumnType>(type: Type): Optional<Type> =>
+    ({ optional: type });
 
-type UnwrapType<Column> =
-    Column extends ColumnData<infer Type, unknown, unknown>
-        ? Type
-        : never;
+export const Unique = <Type extends ColumnType>(type: Type): Unique<Type> =>
+    ({ unique: type });
 
-type UnwrapModifier<Column> =
-    Column extends ColumnData<unknown, infer Modifier, unknown>
-        ? Modifier
-        : never;
-
-type InsertDataColumn<Column> =
-    Column extends ColumnData<infer Type, infer Modifier, infer DefaultValue>
-        ? DefaultValue extends undefined
-            ? "autoincrement" extends Modifier
-                ? never
-                : "nullable" extends Modifier
-                    ? UnwrapColumnType<Type> | null
-                    : UnwrapColumnType<Type>
-            : "autoincrement" extends Modifier
-                ? never
-                : UnwrapColumnType<Type> | null
-        : never;
-
-type InsertData<Columns> = {
-    [Name in keyof Columns as InsertDataColumn<Columns[Name]> extends never ? never : null extends InsertDataColumn<Columns[Name]> ? never : Name]: InsertDataColumn<Columns[Name]>
+export type Prototype<Columns extends Record<string, ColumnType>> = {
+    readonly id: number;
+    readonly createdAt: Date;
+    readonly updatedAt: Date;
+    readonly deletedAt?: Date;
 } & {
-    [Name in keyof Columns as InsertDataColumn<Columns[Name]> extends never ? never : null extends InsertDataColumn<Columns[Name]> ? Name : never]?: InsertDataColumn<Columns[Name]>
+    [ColumnName in keyof Columns as KeyNotToOptional<Columns, ColumnName>]: ColumnType2TypeScript<Columns[ColumnName]>;
+} & {
+    [ColumnName in keyof Columns as KeyToOptional<Columns, ColumnName>]?: ColumnType2TypeScript<Columns[ColumnName]>;
 };
 
-type WhereColumn<Column> =
-    Column extends ColumnData<infer Type, infer Modifier>
-        ? "nullable" extends Modifier
-            ? UnwrapColumnType<Type> | null
-            : UnwrapColumnType<Type>
-        : never;
+export const ct2db = (type: ColumnType): [ string, ...string[] ] => {
+    switch (type) {
+        case Number:
+            return [ "INTEGER", "NOT NULL" ];
+        case String:
+            return [ "TEXT", "NOT NULL" ];
+        case Date:
+            return [ "DATETIME", "NOT NULL" ];
+        default:
+            if ("references" in type)
+                return [ "INTEGER", "NOT NULL", `REFERENCES ${type.references.tableName}` ];
 
-type Where<Columns> = {
-    [Name in keyof Columns as WhereColumn<Columns[Name]> extends never ? never : Name]?: WhereColumn<Columns[Name]>
+            if ("optional" in type) {
+                const [ innerType, ...modifiers ] = ct2db(type.optional);
+
+                return [ innerType, ...modifiers.filter(modifier => modifier !== "NOT NULL"), "DEFAULT null" ];
+            }
+
+            if ("unique" in type) {
+                const [ innerType, ...modifiers ] = ct2db(type.unique);
+
+                return [ innerType, ...modifiers, "UNIQUE" ];
+            }
+
+            break;
+    }
+
+    throw new Error();
 };
 
-class TableData<Columns> {
-    readonly name: string;
-    readonly columns: Columns;
-
-    constructor(name: string, columns: Columns) {
-        this.name = name;
-        this.columns = columns;
-    }
-}
-
-export type TableColumns<T> = T extends Table<infer Columns> ? Columns : never;
-export type EntryOf<T> = T extends Table<infer Columns> ? Entry<Columns> : never;
-
-type UpdateColumn<Column = ColumnData> =
-    Column extends ColumnData<infer Type, infer Modifier, infer DefaultValue>
-        ? "nullable" extends Modifier
-            ? UnwrapColumnType<Type> | null
-            : UnwrapColumnType<Type>
-        : never;
-
-type EntryColumn<Column = ColumnData> =
-    Column extends ColumnData<infer Type, infer Modifier, infer DefaultValue>
-        ? "nullable" extends Modifier
-            ? UnwrapColumnType<Type> | null
-            : UnwrapColumnType<Type>
-        : never;
-
-export type Entry<Columns extends Record<string, unknown>> = {
-    [ColumnName in keyof Columns]: EntryColumn<Columns[ColumnName]>
-}
-
-const db2js = <T>(value: T, type?: ColumnType) => {
-    if (type === "datetime" && typeof value === "string") {
-        return new Date(value);
-    }
-
-    return value;
-};
-
-const js2db = <T>(value: T) => {
-    if (value instanceof Date) {
-        return (
-            value
-                .toISOString()
-                .replace(
-                    /(\d+)-(\d+)-(\d+)T(\d+):(\d+):(\d+).*/gm,
-                    `$1-$2-$3 $4:$5:$6`,
-                )
-        );
-    }
-
-    if (value !== null && typeof value === "object") {
-        return (value as any).id;
-    }
-
-    return value;
-};
-
-const createEntry = <Columns extends Record<string, ColumnData>, T extends object>(table: Table<Columns>, entry: T): { entry: T, proxy: T } => {
-    for (const name in entry) {
-        (entry as any)[name] = db2js(entry[name], (table.columns as any)[name].type);
-    }
-
-    return {
-        entry, proxy: entry && new Proxy(entry, {
-            get(target, property, receiver) {
-                const value: unknown = target[property as keyof T];
-
-                if (typeof property === "string") {
-                    const columnType = table.columns[property]?.type;
-
-                    if (columnType instanceof Function) {
-                        const temp = columnType();
-
-                        if (temp instanceof Array) {
-                            const [ subTable ] = temp;
-
-                            return (
-                                database.queryEntries(`
-                                            SELECT ${subTable.name}.*
-                                            FROM ${subTable.name}
-                                                     INNER JOIN "${table.name} ⟷ ${subTable.name}" "⟷" ON ${subTable.name}.id = "⟷"."${subTable.name}.id"
-                                            WHERE "${table.name}.id" IS ?
-                                    `,
-                                    [ (entry as any).id ],
-                                )
-                                    .map(entry => createEntry(subTable, entry).proxy)
-                            );
-                        } else if (typeof value === "number") {
-                            return temp.findById(value);
-                        }
-                    }
-
-                    return value ?? null;
-                }
-
+export const cv2db = (value: unknown): string | number | null => {
+    switch (typeof value) {
+        case "number":
+        case "string":
+            return value;
+        case "object":
+            if (value === null)
                 return value;
-            },
-            set<T>(target: T, property: string | symbol, value: any, receiver: any): boolean {
-                if (typeof property === "string") {
-                    const columnType = table.columns[property]?.type;
+            if (value instanceof Date)
+                return (
+                    value
+                        .toISOString()
+                        .replace(
+                            /(\d+)-(\d+)-(\d+)T(\d+):(\d+):(\d+).*/gm,
+                            `$1-$2-$3 $4:$5:$6`,
+                        )
+                );
+            break;
+        case "undefined":
+            return null;
+    }
 
-                    if (columnType instanceof Function) {
-                        const temp = columnType();
-
-                        if (temp instanceof Array) {
-                            const [ subTable ] = temp;
-                            const tableName = `${table.name} ⟷ ${subTable.name}`;
-
-                            const newEntryIds = value.map(({ id }: { id: number }) => id) as number[];
-                            const currentEntryIds = database.query(`
-                                SELECT "${subTable.name}.id"
-                                FROM "${tableName}"
-                                WHERE "${table.name}.id" IS ${(entry as any).id}
-                            `).flat() as number[];
-
-                            for (const id of newEntryIds) {
-                                if (!currentEntryIds.includes(id)) {
-                                    database.query(`
-                                        INSERT INTO "${tableName}" ("${table.name}.id", "${subTable.name}.id")
-                                        VALUES (?, ?);
-                                    `, [ (entry as any).id as number, id as number ])
-                                }
-                            }
-
-                            for (const id of currentEntryIds) {
-                                if (!newEntryIds.includes(id)) {
-                                    database.query(`
-                                        DELETE
-                                        FROM "${tableName}"
-                                        WHERE "${table.name}.id" = ?
-                                          AND "${subTable.name}.id" = ?
-                                    `, [ (entry as any).id as number, id as number ])
-                                }
-                            }
-
-                            return true;
-                        }
-                    }
-
-                    table.update((target as any).id, property, value);
-
-                    return true
-                }
-
-                return false;
-            },
-        }),
-    };
+    throw new Error();
 };
 
-class Table<Columns extends Record<string, ColumnData>> extends TableData<Columns> {
-    private entries: Record<number, { entry: Entry<Columns>, proxy: Entry<Columns> }> = {};
-    private updates: Record<number, Partial<Entry<Columns>>> = {};
-    private timeoutId = -1;
-
-    constructor(name: string, columns: Columns) {
-        super(name, columns);
+export const db2cv = (type: ColumnType, value: unknown): string | number | null | Date => {
+    switch (type) {
+        case Number:
+            return value as number;
+        case String:
+            return value as string;
+        case Date:
+            if (typeof value === "string")
+                return new Date(value);
+            break;
     }
 
-    insert(data: InsertData<Columns>): Entry<Columns> {
-        const { names, placeholders, values } = (
-            Object.entries(data)
-                .reduce(({ names, placeholders, values }, [ key, value ]) => {
-                    if (value instanceof Array) {
-                        return ({
-                            names: [ ...names ],
-                            placeholders: [ ...placeholders ],
-                            values: [ ...values ],
-                        });
-                    } else {
-                        return ({
-                            names: [ ...names, key ],
-                            placeholders: [ ...placeholders, "?" ],
-                            values: [ ...values, js2db(value) ],
-                        });
-                    }
-                }, { names: [], placeholders: [], values: [] } as {
-                    names: string[],
-                    placeholders: string[],
-                    values: string[],
-                })
-        );
+    if ("references" in type) {
+        return value as number;
+    }
 
-        database.query(
-            `INSERT INTO ${this.name} (${names})
-             VALUES (${placeholders})`,
-            values,
-        );
-
-        const entry = this.findById(database.lastInsertRowId)!;
-
-        for (const name in data) {
-            const value = (data as any)[name] as UnwrapSetupColumnType<ColumnType>;
-            const type = this.columns[name].type;
-
-            if (value instanceof Array && type instanceof Function) {
-                const temp = type();
-
-                if (temp instanceof Array) {
-                    const [ table ] = temp;
-
-                    for (const subEntry of value) {
-                        database.query(`
-                            INSERT INTO "${this.name} ⟷ ${table.name}" ("${this.name}.id", "${table.name}.id")
-                            VALUES (?, ?);
-                        `, [entry.id as number, subEntry.id as number])
-                    }
-                }
-            }
+    if ("optional" in type) {
+        if (value !== null) {
+            return db2cv(type.optional, value);
+        } else {
+            return null;
         }
-
-        return entry;
     }
 
-    update<Column extends keyof Columns>(id: number, column: Column, value: UpdateColumn<Columns[Column]>) {
-        const entry = this.internalFindById(id).entry;
+    throw new Error();
+};
 
-        if (entry && entry[column] !== value) {
-            const columnType = this.columns[column]?.type;
-            const normalizedValue = (
-                columnType instanceof Function
-                    ? (value as any)?.id ?? null
-                    : js2db(value)
-            );
+export const generateTableQuery = <Columns extends Record<string, ColumnType>>(tableName: string, columns: Columns) => {
+    const columnQueries: string[] = [
+        `id INTEGER NOT NULL PRIMARY KEY AUTOINCREMENT`,
+        `createdAt DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP`,
+        `updatedAt DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP`,
+        `deletedAt DATETIME DEFAULT null`,
+    ];
 
-            (this.updates[id] ??= {})[column] = normalizedValue;
-            entry[column] = value;
+    for (const columnName in columns) {
+        const columnType = columns[columnName];
+        const [ type, ...modifiers ] = ct2db(columnType);
 
-            if (typeof column === "string" && (normalizedValue === null || typeof normalizedValue === "string" || typeof normalizedValue === "number")) {
-                if (this.timeoutId === -1) {
-                    this.timeoutId = setTimeout(() => {
-                        const updates = this.updates;
+        columnQueries.push(`${columnName} ${type} ${modifiers.join(" ")}`);
+    }
 
-                        this.updates = {};
-                        this.timeoutId = -1;
+    return `
+        CREATE TABLE IF NOT EXISTS ${tableName}
+        (
+            ${columnQueries.join(",\n            ")}
+        );
 
-                        for (const id in updates) {
-                            const data = updates[id];
+        CREATE TRIGGER IF NOT EXISTS update_updatedAt_Trigger
+            AFTER UPDATE
+                                                On ${tableName}
+        BEGIN
+        UPDATE ${tableName} SET updatedAt = CURRENT_TIMESTAMP WHERE id = NEW.id;
+        END;
+    `;
+};
 
-                            let query = "";
-                            let values: any[] = [];
+export const Model = <Columns extends Record<string, ColumnType>>(tableName: string, columns: Columns) => {
+    type InsertType = Omit<Prototype<Columns>, "id" | "createdAt" | "updatedAt" | "deletedAt">;
+    type WhereType = Partial<Prototype<Columns>>;
 
-                            for (const column in data) {
-                                query += `${column} = ?,`;
+    class Model {
+        static columns: Columns = columns;
 
-                                if (data[column]) {
-                                    values = [ ...values, js2db(data[column]) ];
-                                }
-                            }
+        readonly id: number;
 
-                            database.query(`UPDATE ${this.name} SET ${query} updatedAt = CURRENT_TIMESTAMP WHERE id = ?`,  [ ...values, id ]);
-                        }
-                    });
-                }
+        constructor(id: number);
+        constructor(insert: InsertType);
+        constructor(insertOrId: InsertType | number) {
+            if (typeof insertOrId !== "number") {
+                const { columnNames, placeholders, values } = (
+                    Object.entries(insertOrId)
+                        .reduce(({ columnNames, placeholders, values }, [ name, value ]) => {
+                            return {
+                                columnNames: [ ...columnNames, name ],
+                                placeholders: [ ...placeholders, "?" ],
+                                values: [ ...values, cv2db(value) ],
+                            };
+                        }, {
+                            columnNames: [] as string[],
+                            placeholders: [] as string[],
+                            values: [] as (string | number | null)[],
+                        })
+                );
+
+                database.query(`INSERT INTO ${tableName} (${columnNames})
+                                VALUES (${placeholders})`, values);
+                this.id = database.lastInsertRowId;
             } else {
-                throw new Error();
+                this.id = insertOrId;
             }
-        }
-    }
 
-    findById(id: number): Entry<Columns> | undefined {
-        return this.internalFindById(id).proxy;
-    }
-
-    where(data: Where<Columns>): Entry<Columns>[] {
-        const keys = Object.keys(data);
-        const where = keys.length > 0 ? `WHERE  ${
-            keys
-                .map(name => `${name} IS ?`)
-                .join(" AND ")
-        }` : ``;
-
-        return (
-            database.queryEntries(`SELECT * FROM ${this.name} ${where}`, Object.values(data))
-                .map((entry) => {
-                    return (this.entries[(entry as any).id] ??= createEntry(this, entry as Entry<Columns>)).proxy;
-                })
-        );
-    }
-
-    all(): Entry<Columns>[] {
-        return this.where({});
-    }
-
-    private internalFindById(id: number): { entry: Entry<Columns> | undefined, proxy: Entry<Columns> | undefined } {
-        return (this.entries[id] ??= createEntry(this, (
-            database.queryEntries(`SELECT * FROM ${this.name} WHERE id = ?`, [ id ])[0] as Entry<Columns>
-        )));
-    }
-}
-
-type TableBuilder<Columns extends Record<string, ColumnData> = {}> = {
-    column<Name extends string, Type extends ColumnType, Modifier extends ColumnModifier = undefined, DefaultValue extends UnwrapSetupColumnType<Type> | undefined = undefined>(name: Name, type: Type, modifiers?: Modifier[], defaultValue?: DefaultValue): TableBuilder<Columns & Column<Name, Type, Modifier, DefaultValue>>,
-    create(): Table<Columns>,
-};
-
-type DefaultColumns =
-    Column<"id", "integer", "autoincrement" | "primary key", undefined> &
-    Column<"createdAt", "datetime", undefined, "CURRENT_TIMESTAMP"> &
-    Column<"updatedAt", "datetime", undefined, "CURRENT_TIMESTAMP"> &
-    Column<"deletedAt", "datetime", "nullable", null>;
-
-export const table = (name: string): TableBuilder<DefaultColumns> => {
-    const columns: DefaultColumns & Record<string, unknown> = {
-        id: { type: "integer", modifiers: [ "primary key", "autoincrement" ], defaultValue: undefined },
-        createdAt: { type: "datetime", modifiers: [], defaultValue: "CURRENT_TIMESTAMP" },
-        updatedAt: { type: "datetime", modifiers: [], defaultValue: "CURRENT_TIMESTAMP" },
-        deletedAt: { type: "datetime", modifiers: ["nullable"], defaultValue: null },
-    };
-
-    return {
-        column(name, type, modifiers, defaultValue) {
-            columns[name] = {
-                type,
-                modifiers,
-                defaultValue,
+            const allColumns = {
+                ...columns,
+                createdAt: Date,
+                updatedAt: Date,
+                deletedAt: Optional(Date),
             };
 
-            return this as never;
-        },
-        create() {
-            const queryColumns =
-                (Object.entries(columns) as ([ string, ColumnData<ColumnType, ColumnModifier> ][]))
-                    .map(([ columnName, { type, modifiers, defaultValue } ]) => {
-                        const queryType = (
-                            type instanceof Function
-                                ? (reference => {
-                                    if (reference instanceof Array) {
-                                        const [ table ] = reference;
+            for (const columnName in allColumns) {
+                const columnType = allColumns[columnName];
 
-                                        database.execute(`
-                                            CREATE TABLE IF NOT EXISTS "${name} ⟷ ${table.name}"
-                                            (
-                                                "${name}.id"       INTEGER REFERENCES ${name},
-                                                "${table.name}.id" INTEGER REFERENCES ${table.name}
-                                            );
-                                        `);
+                Object.defineProperty(this, columnName, {
+                    get: () => {
+                        const [ [ value ] ] = database.query(`
+                            SELECT ${columnName}
+                            FROM ${tableName}
+                            WHERE id IS ${this.id}
+                                LIMIT 1
+                        `);
 
-                                        return undefined;
-                                    } else {
-                                        return `INTEGER REFERENCES ${reference.name}`;
-                                    }
-                                })(type())
-                                : (<Record<string, string>>{
-                                "string": "text",
-                            })[type as string] ?? type
-                        );
-
-                        if (!queryType) {
-                            return undefined;
-                        }
-
-                        const queryModifiers = [ ...modifiers?.sort(x => x === "autoincrement" ? 1 : -1) ?? [] ] as string[];
-                        const index = queryModifiers.indexOf("nullable");
-
-                        if (index !== -1) {
-                            queryModifiers.splice(index, 1);
+                        return db2cv(columnType, value) ?? undefined;
+                    },
+                    set: (value) => {
+                        if (ct2db(columnType)[0] === "DATETIME" && value === "CURRENT_TIMESTAMP") {
+                            database.query(`
+                                UPDATE ${tableName}
+                                SET ${columnName} = CURRENT_TIMESTAMP
+                                WHERE id IS ${this.id}
+                            `);
                         } else {
-                            queryModifiers.push("not null");
+                            database.query(`
+                                UPDATE ${tableName}
+                                SET ${columnName} = ?
+                                WHERE id IS ${this.id}
+                            `, [ cv2db(value) ]);
                         }
+                    },
+                })
+            }
+        }
 
-                        const queryDefaultValue = (
-                            defaultValue !== undefined
-                                ? `DEFAULT ${js2db(defaultValue)}`
-                                : ''
-                        );
+        get isDeleted() {
+            return !!(this as unknown as { deletedAt: Date | undefined }).deletedAt;
+        }
 
-                        return `${columnName} ${queryType} ${queryModifiers?.join(" ") ?? ""} ${queryDefaultValue}`.trim();
-                    })
-                    .filter(column => !!column)
-                    .join(",");
+        static findMany<T extends Model>(this: { new(...args: any): T }, data: WhereType, options: { limit?: number, includeDeleted?: boolean } = {}): T[] {
+            const conditions: string[] = Object.keys(data).map(columName => `${columName} IS ?`);
 
-            database.execute(`CREATE TABLE IF NOT EXISTS ${name} (${queryColumns})`);
+            if (options.includeDeleted !== true) {
+                conditions.push("deletedAt is null");
+            }
 
-            return new Table<DefaultColumns>(name, columns);
-        },
+            return (
+                database.query(`
+                    SELECT id
+                    FROM ${tableName} ${conditions.length > 0 ? `WHERE ${conditions.join(" AND ")}` : ''} ${options.limit !== undefined ? `LIMIT ${options.limit}` : ''}
+                `, Object.values(data as any)
+                    .map(cv2db))
+                    .map(([ id ]) => new this(id))
+            );
+        }
+
+        static findOne<T extends Model>(this: Pick<typeof Model, 'findMany'> & { new(...args: any): T }, data: WhereType, options: { includeDeleted?: boolean } = {}): T | undefined {
+            return this.findMany(data, { ...options, limit: 1 })[0];
+        }
+
+        restore() {
+            (this as unknown as { deletedAt: undefined }).deletedAt = undefined;
+        }
+
+        delete() {
+            (this as unknown as { deletedAt: "CURRENT_TIMESTAMP" }).deletedAt = "CURRENT_TIMESTAMP";
+        }
+    }
+
+    database.execute(generateTableQuery(tableName, columns));
+
+    return Model as Omit<typeof Model, 'new'> & {
+        prototype: typeof Model.prototype & Prototype<Columns>,
+        new(id: number): typeof Model.prototype & Prototype<Columns>,
+        new(insert: InsertType): typeof Model.prototype & Prototype<Columns>,
+        new(insertOrId: InsertType | number): typeof Model.prototype & Prototype<Columns>,
     };
 };

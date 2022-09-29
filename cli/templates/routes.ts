@@ -20,7 +20,7 @@ export const renderRoutes = (properties: Properties) => {
         );
 
         return ts`
-            import { createSignal, createEffect, pathname, createElement, Component } from "https://deno.land/x/tano@0.0.10/lib/frontend/mod.ts";
+            import { createSignal, createEffect, pathname, createElement, Component } from "https://deno.land/x/tano@0.0.11/lib/frontend/mod.ts";
 
 
             export const currentRoute = createSignal<JSX.Element>(undefined);
@@ -66,7 +66,7 @@ export const renderRoutes = (properties: Properties) => {
         );
 
         return ts`
-            import { createSignal, createEffect, pathname, createElement, Component } from "https://deno.land/x/tano@0.0.10/lib/frontend/mod.ts";
+            import { createSignal, createEffect, pathname, createElement, Component } from "https://deno.land/x/tano@0.0.11/lib/frontend/mod.ts";
 
             ${imports}
 

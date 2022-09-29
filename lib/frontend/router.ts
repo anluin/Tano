@@ -20,13 +20,13 @@ export const handleClickOnAnchor = (event: MouseEvent) => {
     }
 };
 
-if (csr) {
+if (window.csr) {
     addEventListener("popstate", () => {
-        pathname.value = location.pathname;
+        pathname.value = location?.pathname;
     });
 
     createEffect(() => {
-        if (location.pathname !== pathname.value) {
+        if (location?.pathname !== pathname.value) {
             history.pushState(undefined, "", pathname.value);
         }
     });

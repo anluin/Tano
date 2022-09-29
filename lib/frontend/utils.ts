@@ -73,7 +73,7 @@ const ssrCreateInjectedDataSignal = async <T>(identifier: string, initializer: (
         }));
 
 export const createInjectedDataSignal = (
-    ssr
+    window.ssr
         ? ssrCreateInjectedDataSignal
         : csrCreateInjectedDataSignal
 );

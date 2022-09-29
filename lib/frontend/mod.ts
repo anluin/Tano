@@ -120,8 +120,8 @@ declare global {
     interface Window {
         ssr: boolean;
         csr: boolean;
-        f: typeof fragmentType;
-        h: typeof createElement;
+        f: typeof f;
+        h: typeof h;
         injectedData: JSONValue | undefined;
     }
 }

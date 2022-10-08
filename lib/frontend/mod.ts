@@ -21,6 +21,10 @@ declare global {
             style?: string,
             onClick?: MouseEventListener,
             reference?: Signal<HTMLElement | undefined>,
+            onDrop?: (event: DragEvent) => void,
+            onDragOver?: (event: DragEvent) => void,
+            onDragStar?: (event: DragEvent) => void,
+            draggable?: boolean,
         };
 
         type IntrinsicElements = WithSignals<{

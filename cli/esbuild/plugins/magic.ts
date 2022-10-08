@@ -78,10 +78,6 @@ export const magicPlugin = async ({ importMapFilePath, backendDirectoryPath, end
                     return await cache(url);
                 }
 
-                if (/^https?:\/\//.test(args.path)) {
-                    return await cache(new URL(args.path));
-                }
-
                 for (const pattern in imports) {
                     if (args.path.startsWith(pattern)) {
                         const path = resolve(directoryPath, args.path.replace(pattern, imports[pattern].replace("file://", "")));
@@ -102,6 +98,10 @@ export const magicPlugin = async ({ importMapFilePath, backendDirectoryPath, end
                             path,
                         };
                     }
+                }
+
+                if (/^https?:\/\//.test(args.path)) {
+                    return await cache(new URL(args.path));
                 }
             });
 
@@ -130,7 +130,7 @@ export const magicPlugin = async ({ importMapFilePath, backendDirectoryPath, end
 
                     return ({
                         contents: ts`
-                            import { createEndpoint } from "https://deno.land/x/tano@0.0.12/lib/frontend/mod.ts";
+                            import { createEndpoint } from "https://deno.land/x/tano@0.0.13/lib/frontend/mod.ts";
 
                             ${wrapper}
                         `,

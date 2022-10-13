@@ -23,7 +23,7 @@ declare global {
             reference?: Signal<HTMLElement | undefined>,
             onDrop?: (event: DragEvent) => void,
             onDragOver?: (event: DragEvent) => void,
-            onDragStar?: (event: DragEvent) => void,
+            onDragStart?: (event: DragEvent) => void,
             draggable?: boolean,
         };
 

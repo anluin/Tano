@@ -43,6 +43,7 @@ type Normalized<T> = T extends Signal<infer I> ? Normalized<I> : T extends objec
 
 export class Signal<T> {
     private readonly callbacks: Set<Callback>;
+    private timeoutId = -1;
     private inner: T;
 
     constructor(inner: T) {
@@ -67,11 +68,20 @@ export class Signal<T> {
         if (this.inner !== value) {
             this.inner = value;
 
-            const callbacks = [ ...this.callbacks ];
-            this.callbacks.clear();
+            /* debounce */ {
+                if (this.timeoutId !== -1) {
+                    clearTimeout(this.timeoutId);
+                }
 
-            for (const callback of callbacks) {
-                createEffect(callback);
+                this.timeoutId = setTimeout(() => {
+                    const callbacks = [ ...this.callbacks ];
+                    this.callbacks.clear();
+                    this.timeoutId = -1;
+
+                    for (const callback of callbacks) {
+                        createEffect(callback);
+                    }
+                });
             }
         }
     }
@@ -121,14 +131,15 @@ export function createEffect<T1, T2, T3>(s1: MaybeSignal<T1>, s2: MaybeSignal<T2
 export function createEffect(...args: (MaybeSignal<unknown> | ((...args: unknown[]) => void))[]) {
     const callback = args.splice(-1)[0] as (...args: unknown[]) => void;
     const previousCallback = currentCallback;
-    (currentCallback = () => callback(...args.map(Signal.normalize)))();
+
+    (currentCallback = () => callback( ...args.map(Signal.normalize)))();
     currentCallback = previousCallback;
 }
 
 export function computed<R>(callback: () => R): Signal<R>;
 export function computed<R, T1>(s1: MaybeSignal<T1>, callback: (v1: T1) => R): Signal<R>;
 export function computed<R, T1, T2>(s1: MaybeSignal<T1>, s2: MaybeSignal<T2>, callback: (v1: T1, v2: T2) => R): Signal<R>;
-export function computed<R, T1, T2, T3>(s1: MaybeSignal<T1>, s2: MaybeSignal<T2>, s3: MaybeSignal<T3>, callback: (v1: T1, v2: T2, v3: T2) => R): Signal<R>;
+export function computed<R, T1, T2, T3>(s1: MaybeSignal<T1>, s2: MaybeSignal<T2>, s3: MaybeSignal<T3>, callback: (v1: T1, v2: T2, v3: T3) => R): Signal<R>;
 export function computed<R>(...args: (MaybeSignal<unknown> | ((...args: unknown[]) => R))[]): Signal<R> {
     let signal: Signal<R> | undefined;
 

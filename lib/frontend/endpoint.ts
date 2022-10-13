@@ -1,3 +1,6 @@
+import { deserialize, serialize } from "../shared/utils.ts";
+
+
 export const createEndpoint = (pathname: string, method: string) => {
     return async (...args: unknown[]): Promise<unknown> => {
         const rawResponse = await fetch(pathname, {
@@ -7,7 +10,7 @@ export const createEndpoint = (pathname: string, method: string) => {
             },
             body: JSON.stringify({
                 method,
-                args,
+                args: args.map(serialize),
             }),
         });
 
@@ -25,6 +28,6 @@ export const createEndpoint = (pathname: string, method: string) => {
             throw error;
         }
 
-        return result;
+        return deserialize(result);
     };
 };

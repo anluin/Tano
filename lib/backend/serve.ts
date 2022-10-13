@@ -1,11 +1,17 @@
-import { Document, DocumentFragment, DOMImplementation, Element as HTMLElement, Text } from "https://deno.land/x/deno_dom@v0.1.35-alpha/deno-dom-wasm-noinit.ts";
+import {
+    Document,
+    DocumentFragment,
+    DOMImplementation,
+    Element as HTMLElement,
+    Text
+} from "https://deno.land/x/deno_dom@v0.1.35-alpha/deno-dom-wasm-noinit.ts";
 import { CTOR_KEY } from "https://deno.land/x/deno_dom@v0.1.35-alpha/src/constructor-lock.ts";
 
 import { walk } from "https://deno.land/std@0.152.0/fs/walk.ts";
 import { relative } from "https://deno.land/std@0.152.0/path/mod.ts";
 
 import { JSONObject, JSONValue } from "../shared/json.ts";
-import { stringify } from "../shared/utils.ts";
+import { deserialize, serialize, stringify } from "../shared/utils.ts";
 
 import { PatchResponse, setCurrentEndpointAccess } from "./endpoint.ts";
 
@@ -133,11 +139,12 @@ const buildResponse = async (request: Request, options: ServeOptions): Promise<R
                 },
             });
 
+
             const result = (
-                await endpoint[method](...args)
+                await endpoint[method](...args.map(deserialize))
                     .then((result: any) => ({
                         status: "success",
-                        result,
+                        result: serialize(result),
                     }))
                     .catch((error: any) => ({
                         status: "failure",

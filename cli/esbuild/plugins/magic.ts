@@ -25,9 +25,10 @@ const sha1 = async (data: string) =>
 
 // TODO: replace this shit with deno-cache
 const cacheDirectoryMapping: Record<string, string> = {};
+
 const cache = async (url: URL) => {
     const path = resolve(join(
-        `.tano/cache/${await sha1(url.host)}`,
+        `${Deno.env.get("HOME")}/.tano/cache/${await sha1(url.host)}`,
         url.pathname
     ));
 
@@ -47,7 +48,11 @@ const cache = async (url: URL) => {
     });
 };
 
-export const magicPlugin = async ({ importMapFilePath, backendDirectoryPath, endpoints }: Properties): Promise<Plugin> => {
+export const magicPlugin = async ({
+                                      importMapFilePath,
+                                      backendDirectoryPath,
+                                      endpoints
+                                  }: Properties): Promise<Plugin> => {
     const { imports } = await Deno.readTextFile(importMapFilePath).then(JSON.parse);
 
     const directoryPath = dirname(importMapFilePath);
@@ -130,7 +135,7 @@ export const magicPlugin = async ({ importMapFilePath, backendDirectoryPath, end
 
                     return ({
                         contents: ts`
-                            import { createEndpoint } from "https://deno.land/x/tano@0.0.13/lib/frontend/mod.ts";
+                            import { createEndpoint } from "https://deno.land/x/tano@0.0.14/lib/frontend/mod.ts";
 
                             ${wrapper}
                         `,

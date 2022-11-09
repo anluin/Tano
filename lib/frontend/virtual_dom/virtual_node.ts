@@ -1,6 +1,8 @@
+import "../jsx.ts";
+
 import { InflatedElementNode, InflatedFragmentNode, InflatedNode, InflatedTextNode } from "./inflated_node.ts";
 import { collectEffects, createEffect, preventEffect, Signal } from "../signal.ts";
-import { normalize, ParentComponent } from "../render.ts";
+import { normalizeChild, ParentComponent } from "../render.ts";
 
 
 export type Context = {
@@ -93,7 +95,7 @@ export class VirtualSignalNode extends VirtualNode {
         let inflatedNode: InflatedNode | undefined;
 
         createEffect(() => {
-            const virtualNode = normalize(this.signal.value);
+            const virtualNode = normalizeChild(this.signal.value);
 
             if (inflatedNode) {
                 const parent = inflatedNode.parent;
@@ -114,7 +116,9 @@ export class VirtualSignalNode extends VirtualNode {
                     throw new Error();
                 }
             } else {
-                inflatedNode = virtualNode.inflate();
+                createContext(() => {
+                    inflatedNode = virtualNode.inflate().setContext(currentContext);
+                });
             }
         });
 
@@ -122,7 +126,7 @@ export class VirtualSignalNode extends VirtualNode {
     }
 }
 
-export class VirtualElementNode extends VirtualParentNode<HTMLElement> {
+export class VirtualElementNode extends VirtualParentNode<HTMLElement | SVGElement> {
     readonly tagName: string;
     readonly properties: Record<string, unknown>;
 
@@ -132,9 +136,15 @@ export class VirtualElementNode extends VirtualParentNode<HTMLElement> {
         this.properties = properties;
     }
 
-    inflate(): InflatedNode<HTMLElement> {
+    inflate(): InflatedNode<HTMLElement | SVGElement> {
+        const element = (
+            [ "svg", "defs", "g", "rect", "circle", "path", "polyline" ].includes(this.tagName)
+                ? document.createElementNS("http://www.w3.org/2000/svg", this.tagName)
+                : document.createElement(this.tagName)
+        );
+
         return (
-            new InflatedElementNode(document.createElement(this.tagName), this.tagName)
+            new InflatedElementNode(element, this.tagName)
                 .patchProperties(this.properties)
                 .patchChildren(this.children)
         );
@@ -172,8 +182,8 @@ export class VirtualComponentNode extends VirtualParentNode {
 
     inflate(): InflatedNode {
         return createContext(() =>
-            normalize(preventEffect(() => new VirtualFragmentNode([
-                normalize(this.component(this.properties as Record<string, never>, this.children)),
+            normalizeChild(preventEffect(() => new VirtualFragmentNode([
+                normalizeChild(this.component(this.properties as Record<string, never>, this.children)),
             ])))
                 .inflate()
                 .setContext(currentContext)

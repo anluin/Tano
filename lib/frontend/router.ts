@@ -1,4 +1,5 @@
 import { createEffect, createSignal } from "./signal.ts";
+import { isInstalled } from "./utils.ts";
 
 
 export const pathname = createSignal(location?.pathname);
@@ -27,7 +28,11 @@ if (csr) {
 
     createEffect(() => {
         if (location?.pathname !== pathname.value) {
-            history.pushState(undefined, "", pathname.value);
+            if (isInstalled()) {
+                history.replaceState(undefined, "", pathname.value);
+            } else {
+                history.pushState(undefined, "", pathname.value);
+            }
         }
     });
 }

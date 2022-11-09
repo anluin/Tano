@@ -38,8 +38,35 @@ export const collectEffects = <T>(callback: Callback<T>): [ T, () => void ] => {
     } ];
 };
 
-type Normalized<T> = T extends Signal<infer I> ? Normalized<I> : T extends object ? { [K in keyof T]: Normalized<T[K]> } : T;
+export type Normalized<O> = {
+    [K in keyof O]: O[K] extends MaybeSignal<infer T> ? T : O[K]
+};
 
+export const normalize = <T>(data: MaybeSignal<T>): T => {
+    if (data instanceof Signal) {
+        return data.value;
+    } else {
+        return data;
+    }
+}
+
+export const normalizeObject = <T>(object: T) => {
+    const result = { ...object };
+
+    for (const key in object) {
+        result[key] = normalize(object[key]);
+    }
+
+    return result as Normalized<T>;
+}
+
+export const normalizeArray = <T extends Array<MaybeSignal<unknown>>>(object: T) => {
+    return object.map(normalize) as Normalized<T>;
+}
+
+export type Options = {
+    force?: boolean,
+};
 
 export class Signal<T> {
     private readonly callbacks: Set<Callback>;
@@ -52,6 +79,60 @@ export class Signal<T> {
     }
 
     get value() {
+        return this.get();
+    }
+
+    set value(value: T) {
+        this.set(value);
+    }
+
+    map<R>(callback: (value: T) => R): Signal<R> {
+        return computed(this, callback);
+    }
+
+    effect(callback: (value: T) => void) {
+        createEffect(this, callback);
+        return this;
+    }
+
+    set(value: T, options: Options = {}) {
+        const { force = false } = options;
+
+        if (this.inner !== value || force) {
+            this.inner = value;
+
+            const callbacks = [ ...this.callbacks ];
+            this.callbacks.clear();
+            this.timeoutId = -1;
+
+            for (const callback of callbacks) {
+                callback();
+                this.callbacks.add(callback);
+            }
+
+            // /* debounce */
+            // {
+            //     if (this.timeoutId !== -1) {
+            //         clearTimeout(this.timeoutId);
+            //     }
+            //
+            //     this.timeoutId = setTimeout(() => {
+            //         const callbacks = [ ...this.callbacks ];
+            //         this.callbacks.clear();
+            //         this.timeoutId = -1;
+            //
+            //         for (const callback of callbacks) {
+            //             callback();
+            //             this.callbacks.add(callback);
+            //         }
+            //     });
+            // }
+        }
+
+        return this;
+    }
+
+    get() {
         if (currentCallback) {
             this.callbacks.add(currentCallback);
 
@@ -64,55 +145,9 @@ export class Signal<T> {
         return this.inner;
     }
 
-    set value(value: T) {
-        if (this.inner !== value) {
-            this.inner = value;
-
-            /* debounce */ {
-                if (this.timeoutId !== -1) {
-                    clearTimeout(this.timeoutId);
-                }
-
-                this.timeoutId = setTimeout(() => {
-                    const callbacks = [ ...this.callbacks ];
-                    this.callbacks.clear();
-                    this.timeoutId = -1;
-
-                    for (const callback of callbacks) {
-                        createEffect(callback);
-                    }
-                });
-            }
-        }
-    }
-
-    static normalize<T>(data: T | Signal<T>): T {
-        if (data instanceof Signal) {
-            return data.value;
-        } else {
-            return data;
-        }
-    }
-
-    static normalizeObject<T>(data: Record<keyof T, Signal<T[keyof T]>>): Record<keyof T, T[keyof T]> {
-        if (data && typeof data === "object") {
-            return Object.fromEntries(Object.entries(data).map(([ key, value ]) => [ key, Signal.normalize(value) ])) as Record<keyof T, T[keyof T]>;
-        } else {
-            return data;
-        }
-    }
-
-    effect(callback: (value: T) => void) {
-        createEffect(this, callback);
+    update(updater: (value: T) => T, options: Options = {}) {
+        this.set(updater(this.get()), options);
         return this;
-    }
-
-    set(value: T) {
-        this.value = value;
-    }
-
-    get() {
-        return this.value;
     }
 
     cancel(callback: Callback) {
@@ -120,7 +155,7 @@ export class Signal<T> {
     }
 }
 
-type MaybeSignal<T> = T | Signal<T>;
+export type MaybeSignal<T> = T | Signal<T>;
 
 export const createSignal = <T>(value: T) => new Signal<T>(value);
 
@@ -132,7 +167,7 @@ export function createEffect(...args: (MaybeSignal<unknown> | ((...args: unknown
     const callback = args.splice(-1)[0] as (...args: unknown[]) => void;
     const previousCallback = currentCallback;
 
-    (currentCallback = () => callback( ...args.map(Signal.normalize)))();
+    (currentCallback = () => callback(...args.map(normalize)))();
     currentCallback = previousCallback;
 }
 
@@ -146,7 +181,7 @@ export function computed<R>(...args: (MaybeSignal<unknown> | ((...args: unknown[
     const callback = args.splice(-1)[0] as (...args: unknown[]) => R;
 
     createEffect(() => {
-        const result = callback(...args.map(Signal.normalize));
+        const result = callback(...args.map(normalize));
 
         if (signal) {
             signal.value = result;
@@ -157,3 +192,27 @@ export function computed<R>(...args: (MaybeSignal<unknown> | ((...args: unknown[
 
     return signal!;
 }
+
+export const createMediaQuerySignal = (query: string, ssrDefaultValue = false) => {
+    if (csr) {
+        const mediaQueryList = window.matchMedia(query);
+        const signal = createSignal(mediaQueryList.matches);
+
+        mediaQueryList.addEventListener("change", (
+            (event: MediaQueryListEvent) =>
+                signal.set(event.matches)
+        ));
+
+        return signal;
+    } else {
+        return createSignal(ssrDefaultValue);
+    }
+};
+
+export const normalizeToSignal = <T>(value: MaybeSignal<T>): Signal<T> => {
+    if (value instanceof Signal) {
+        return value;
+    } else {
+        return createSignal(value);
+    }
+};

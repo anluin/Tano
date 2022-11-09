@@ -1,8 +1,16 @@
 import { InflatedElementNode, InflatedNode, InflatedTextNode } from "./virtual_dom/inflated_node.ts";
 import { onCleanup, onMount, Properties } from "./render.ts";
 import { JSONObject, JSONValue } from "../shared/json.ts";
-import { createSignal, Signal } from "./signal.ts";
+import { computed, createSignal, MaybeSignal, normalizeArray, normalizeObject, Signal } from "./signal.ts";
 
+
+declare global {
+    const injectedData: JSONValue | undefined;
+
+    interface Window {
+        injectedData: JSONValue | undefined;
+    }
+}
 
 export const isInstalled = () => (
     window.matchMedia
@@ -10,14 +18,21 @@ export const isInstalled = () => (
         .matches ?? undefined
 );
 
-export const classNames = (staticClassNames: (string | undefined)[], dynamicClassNames?: Record<string, boolean | undefined>): string =>
-    Object.entries(dynamicClassNames ?? {})
-        .reduce(
-            (carry, [ key, active ]) =>
-                [ ...carry, ...(active ? [ key ] : []) ],
-            staticClassNames.filter(className => !!className)
+export const classNames = (staticClassNames: MaybeSignal<string | undefined>[], dynamicClassNames?: Record<string, MaybeSignal<unknown>>): Signal<string> =>
+    computed(() =>
+        (
+            dynamicClassNames
+                ? Object.entries(normalizeObject(dynamicClassNames))
+                : []
         )
-        .join(" ");
+            .reduce(
+                (carry, [ key, active ]) =>
+                    [ ...carry, ...(active ? [ key ] : []) ],
+                normalizeArray(staticClassNames)
+                    .filter(className => !!className)
+            )
+            .join(" ")
+    );
 
 export const sleep = (delay: number) =>
     new Promise(resolve => setTimeout(resolve, delay));
@@ -30,14 +45,14 @@ export const propertyName2AttributeName = (name: string) =>
         "className": "class",
     })[name] ?? name;
 
-export const restoreProperties = (element: HTMLElement): Properties =>
+export const restoreProperties = (element: HTMLElement | SVGElement): Properties =>
     [ ...element.attributes ].reduce((carry, { name, value }) => ({ ...carry, [name]: value }), {})
 
-export const restoreChildren = (element: HTMLElement): InflatedNode[] =>
+export const restoreChildren = (element: HTMLElement | SVGElement): InflatedNode[] =>
     [ ...element.childNodes ].map(restoreTree);
 
 export const restoreTree = (node: Node): InflatedNode => {
-    if (node instanceof HTMLElement) {
+    if (node instanceof HTMLElement  || node instanceof SVGElement) {
         return (
             new InflatedElementNode(node, node.tagName.toLowerCase(), restoreProperties(node), restoreChildren(node))
         );

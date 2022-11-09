@@ -31,6 +31,7 @@ const injectFilePath = join(await Deno.makeTempFile({ suffix: ".ts" }));
 type Config = {
     esbuild?: {
         splitting?: boolean,
+        sourceMaps?: boolean,
     },
 };
 
@@ -54,7 +55,7 @@ try {
 }
 
 await Deno.writeTextFile(injectFilePath, ts`
-    export { createElement, fragmentType } from "https://deno.land/x/tano@0.0.13/lib/frontend/mod.ts";
+    export { createElement, fragmentType } from "https://deno.land/x/tano@0.0.14/lib/frontend/mod.ts";
 `);
 
 const endpoints: Record<string, string[]> = {};
@@ -82,6 +83,7 @@ await esbuild.build({
         "csr": "false",
         "ssr": "true",
     },
+    external: ['*.png'],
 });
 
 await Deno.writeTextFile(endpointsFilePath, renderEndpoints({ endpoints }));
@@ -95,6 +97,7 @@ await patchAsyncHooks(ssrFilePath, "render", [
     "Text",
     "HTMLElement",
     "DocumentFragment",
+    "SVGElement",
 ]);
 
 await esbuild.build({
@@ -105,7 +108,7 @@ await esbuild.build({
     outdir: buildDirectoryPath,
     bundle: true,
     format: "esm",
-    sourcemap: true,
+    sourcemap: config.esbuild?.sourceMaps ?? true,
     splitting: config.esbuild?.splitting ?? false,
     treeShaking: true,
     minify: true,
@@ -120,6 +123,7 @@ await esbuild.build({
         "csr": "true",
         "ssr": "false",
     },
+    external: ['*.png'],
 });
 
 esbuild.stop();

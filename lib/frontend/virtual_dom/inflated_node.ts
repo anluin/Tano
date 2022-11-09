@@ -1,5 +1,5 @@
 import { Context, VirtualElementNode, VirtualFragmentNode, VirtualNode, VirtualTextNode } from "./virtual_node.ts";
-import { collectEffects, createEffect, Signal } from "../signal.ts";
+import { collectEffects, createEffect, normalize, Signal } from "../signal.ts";
 import { propertyName2AttributeName, propertyName2EventName } from "../utils.ts";
 import { handleClickOnAnchor } from "../router.ts";
 
@@ -145,13 +145,13 @@ export abstract class InflatedParentNode<T extends Node = Node> extends Inflated
     }
 }
 
-export class InflatedElementNode extends InflatedParentNode<HTMLElement> {
+export class InflatedElementNode extends InflatedParentNode<HTMLElement | SVGElement> {
     private readonly tagName: string;
     private readonly properties: Record<string, unknown>;
 
     private cancelPropertyEffects?: () => void;
 
-    constructor(node: HTMLElement, tagName: string, properties: Record<string, unknown> = {}, children: InflatedNode[] = []) {
+    constructor(node: HTMLElement | SVGElement, tagName: string, properties: Record<string, unknown> = {}, children: InflatedNode[] = []) {
         super(node, children);
         this.tagName = tagName;
         this.properties = properties;
@@ -178,10 +178,10 @@ export class InflatedElementNode extends InflatedParentNode<HTMLElement> {
         for (const name in this.properties) {
             const value = this.properties[name];
 
-            if (Signal.normalize(properties[name]) !== value) {
+            if (normalize(properties[name]) !== value) {
                 if (name.startsWith("on") && value instanceof Function) {
                     this.node.removeEventListener(propertyName2EventName(name), value as EventListener);
-                } else if (typeof value === "string") {
+                } else if (typeof value === "string" && ssr || this.node instanceof SVGElement || name.startsWith("data-")) {
                     this.node.removeAttribute(propertyName2AttributeName(name));
                 } else if (csr) {
                     delete (this.node as any)[name];
@@ -195,26 +195,30 @@ export class InflatedElementNode extends InflatedParentNode<HTMLElement> {
                     const value = properties[name];
 
                     if (value instanceof Signal) {
-                        if (csr && this.node instanceof HTMLInputElement) {
+                        if (csr) {
                             const element = this.node;
-                            if (name === "value") {
-                                this.node.addEventListener("input", () => value.set(element.value));
+
+                            if (element instanceof HTMLInputElement) {
+                                if (name === "checked") {
+                                    element.addEventListener("input", () => value.set(element.checked));
+                                }
                             }
 
-                            if (name === "checked") {
-                                const element = this.node;
-                                this.node.addEventListener("input", () => value.set(element.checked));
+                            if (element instanceof HTMLInputElement || element instanceof HTMLTextAreaElement) {
+                                if (name === "value") {
+                                    element.addEventListener("input", () => value.set(element.value));
+                                }
                             }
                         }
                     }
 
-                    const normalizedValue = Signal.normalize(value);
+                    const normalizedValue = normalize(value);
 
                     if (this.properties[name] !== normalizedValue) {
                         if (name.startsWith("on") && normalizedValue instanceof Function) {
                             this.node.addEventListener(propertyName2EventName(name), normalizedValue as EventListener);
-                        } else if (typeof normalizedValue === "string") {
-                            this.node.setAttribute(propertyName2AttributeName(name), normalizedValue);
+                        } else if (typeof normalizedValue === "string" && ssr || this.node instanceof SVGElement || name.startsWith("data-")) {
+                            this.node.setAttribute(propertyName2AttributeName(name), `${normalizedValue}`);
                         } else if (csr) {
                             (this.node as any)[name] = normalizedValue;
                         }

@@ -1,0 +1,8 @@
+{
+    "imports": {
+        "https://deno.land/x/tano@0.0.14/": "../../../",
+        "@backend/": "../src/backend/",
+        "@frontend/": "../src/frontend/",
+        "@build/": "../.build/"
+    }
+}

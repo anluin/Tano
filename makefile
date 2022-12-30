@@ -1,5 +1,5 @@
-install:
-	deno check cli/main.ts && deno install --check --allow-env --allow-run --allow-net --allow-read --allow-write -f -n tano cli/main.ts
+run: bin/libsqlite3_aarch64.dylib
+	DENO_SQLITE_PATH=./bin/libsqlite3_aarch64.dylib deno run --check -A cli/main.ts samples/hello_world/
 
-test:
-	@deno run --check --allow-read --allow-env --allow-run --allow-write cli/main.ts sample
+bin/libsqlite3_aarch64.dylib:
+	wget -O $@ https://github.com/denodrivers/sqlite3/releases/download/0.6.1/libsqlite3_aarch64.dylib

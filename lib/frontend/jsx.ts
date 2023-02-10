@@ -4,29 +4,27 @@ import { Signal } from "./signal.ts";
 
 declare global {
     const React: unknown;
-    const ssr: boolean;
-    const csr: boolean;
 
     namespace JSX {
         type IntrinsicElements = Record<string, unknown>;
 
-        type Element = undefined | string | number | VirtualNode | Signal<Element>;
+        type Element = undefined | string | number | Element[] | VirtualNode | Signal<JSX.Element>;
     }
 }
 
-export type MouseEventListener = (event: MouseEvent) => void;
+export type MouseEventListener = (this: HTMLElement, event: MouseEvent) => void;
+export type SubmitEventListener = (this: HTMLElement, event: SubmitEvent) => void;
 
 export type Properties = Record<string, unknown>;
-export type Attributes = Record<string, unknown>;
-export type Component<T extends Properties = Properties> = (this: VirtualComponent, properties: T, children: unknown[]) => JSX.Element;
+export type Component<T extends Properties = Properties> = (properties: T, children: VirtualNode[] | undefined) => JSX.Element;
 
-const isTagArgs = (args: unknown[]): args is [ string, Properties | null, ...unknown[] ] =>
+const isTagArgs = (args: unknown[]): args is [string, Properties | null, ...unknown[]] =>
     typeof args[0] === "string";
 
-const isFragmentArgs = (args: unknown[]): args is [ typeof fragmentType, null, ...unknown[] ] =>
+const isFragmentArgs = (args: unknown[]): args is [typeof fragmentType, null, ...unknown[]] =>
     args[0] === fragmentType;
 
-const isComponentArgs = (args: unknown[]): args is [ Component, Properties | null, ...unknown[] ] =>
+const isComponentArgs = (args: unknown[]): args is [Component, Properties | null, ...unknown[]] =>
     args[0] instanceof Function;
 
 const throwError = (message?: string) => {

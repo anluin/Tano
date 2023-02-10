@@ -1,66 +1,35 @@
+import { Component, Properties } from "./jsx.ts";
+import { Signal } from "./signal.ts";
 import { Effect } from "./effect.ts";
-import { VirtualComponent } from "./node.ts";
-import { globalContext } from "./context.ts";
-import { Component } from "./jsx.ts";
+import { globalContext, useContext } from "./context.ts";
 import { isInstalled } from "./utils.ts";
-import { $pathname, $route } from "./store.ts";
 
 
 declare global {
-    const __routes: Record<string, () => Promise<{ render: Component }>>;
+    const __routes: Record<string, () => Promise<{ Route: Component, properties: Properties }>>;
 }
 
+export const $pathname = new Signal(location.pathname);
 
-const findParameters = (
-    (cache: Record<string, RegExp> = {}) =>
-        (pattern: string, pathname: string): Record<string, string> | undefined => (
-            cache[pattern] ??=
-                new RegExp(`^${pattern.replace(/:(\w+)/g, `(?<$1>[^\\/]+)`)}$`)
-        )
-            .exec(pathname)
-            ?.groups
-)();
+export function handleAnchorClick(this: HTMLAnchorElement, event: MouseEvent) {
+    const href = this.getAttribute("href");
 
-const findRouteAndParameters = (pathname: string) => {
-    if (__routes[pathname]) {
-        return {
-            loadRenderFn: async () => (await __routes[pathname]()).render,
-            parameters: {},
-        };
+    if (href === null) {
+        event.preventDefault();
     }
 
-    for (const pattern in __routes) {
-        const parameters = findParameters(pattern, pathname);
-
-        if (parameters) {
-            return {
-                loadRenderFn: async () => (await __routes[pattern]()).render,
-                parameters,
-            };
-        }
+    if (href?.startsWith("/")) {
+        event.preventDefault();
+        $pathname.value = href;
     }
-};
+}
 
-globalContext.use(() => {
-    new Effect(() => {
+useContext(globalContext, () => {
+    csr && new Effect(() => {
         const newPathname = $pathname.value;
 
         if (location.pathname !== newPathname) {
-            history[isInstalled() ? "replaceState" : "pushState"](undefined, "", newPathname);
-        }
-    });
-
-    new Effect(() => {
-        const routeAndParameters = findRouteAndParameters($pathname.value);
-
-        if (routeAndParameters) {
-            const { loadRenderFn, parameters } = routeAndParameters;
-
-            loadRenderFn()
-                .then(renderFn => {
-                    $route.value = new VirtualComponent(renderFn, parameters, []);
-                })
-                .catch(console.error);
+            history[isInstalled ? "replaceState" : "pushState"](undefined, "", newPathname);
         }
     });
 });

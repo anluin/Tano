@@ -1,13 +1,10 @@
-import { computed, Effect } from "./effect.ts";
-import { ssrRenderBlocking } from "./utils.ts";
-import { getInjectedData, setInjectedData } from "./injectedData.ts";
-import { JSONValue } from "../shared/types/json.ts";
-
+import { Effect } from "./effect.ts";
+import { computed } from "./utils.ts";
 
 export class Signal<T> {
     readonly __effects: Set<Effect>;
 
-    private __value: T;
+    __value: T;
 
     constructor(value: T) {
         this.__effects = new Set();
@@ -16,18 +13,18 @@ export class Signal<T> {
 
     get value() {
         if (Effect.__current) {
-            this.__effects.add(Effect.__current);
             Effect.__current.__signals.set(this, this.__value);
+            this.__effects.add(Effect.__current);
         }
 
         return this.__value;
     }
 
     set value(value: T) {
-        this.__value = value;
+        const effects = [...this.__effects];
 
-        const effects = [ ...this.__effects ]
         this.__effects.clear();
+        this.__value = value;
 
         for (const effect of effects) {
             if (effect.__signals.has(this) && effect.__signals.get(this) === this.__value) {
@@ -38,16 +35,7 @@ export class Signal<T> {
         }
     }
 
-    map<R>(mapping: (value: T) => R) {
-        return computed(() => mapping(this.value));
-    }
-
-    static async fromInjectedData<T extends JSONValue>(identifier: string, initializer: () => T | Promise<T>): Promise<Signal<T>> {
-        const signal = new Signal(getInjectedData<T>(identifier) ?? await ssrRenderBlocking(async () => await initializer()));
-        ssr && new Effect(() => setInjectedData<T>(identifier, signal.value));
-        // csr && (async () => signal.value = await initializer())().catch(console.error);
-        return signal;
+    map<R>(callback: (value: T) => R): Signal<R> {
+        return computed(() => callback(this.value));
     }
 }
-
-export type ReadonlySignal<T> = Omit<Signal<T>, "value"> & { readonly value: T };

@@ -1,241 +1,188 @@
-import * as esbuild from "https://deno.land/x/esbuild@v0.15.16/mod.js";
-import { join, relative, resolve } from "https://deno.land/std@0.153.0/path/mod.ts";
-import { walk } from "https://deno.land/std@0.153.0/fs/walk.ts";
+import * as path from "https://deno.land/std@0.171.0/path/mod.ts";
 
-import { renderFrontendInjection } from "./templates/injections/frontendInjection.ts";
-import { renderServiceWorkerInjection } from "./templates/injections/serviceWorkerInjection.ts";
-import { renderEndpoints } from "./templates/endpoints.ts";
-import { ssrPatch } from "./utils/ssrPatch.ts";
-import { magicPlugin } from "./esbuild/magic.ts";
+import * as esbuild from "https://deno.land/x/esbuild@v0.16.16/mod.js";
+
+import { buildRoutesInjectionFile } from "./routing.ts";
+import { patchBundle } from "./patch.ts";
+import { Plugin } from "./plugin.ts";
+import { buildDataInjectionFile } from "./data.ts";
 
 
-const workspaceDirectoryPath = resolve(Deno.args[0] ?? Deno.cwd());
-const buildDirectoryPath = join(workspaceDirectoryPath, ".build");
-const dataDirectoryPath = join(workspaceDirectoryPath, ".data");
-const backendBuildDirectoryPath = join(buildDirectoryPath, "backend");
-const frontendBuildDirectoryPath = join(buildDirectoryPath, "frontend");
-const injectionBuildDirectoryPath = join(buildDirectoryPath, "injection");
-const configDirectoryPath = join(workspaceDirectoryPath, "config");
-const sourceDirectoryPath = join(workspaceDirectoryPath, "src");
-const resourcesDirectoryPath = join(sourceDirectoryPath, "resources");
-const frontendDirectoryPath = join(sourceDirectoryPath, "frontend");
-const backendDirectoryPath = join(sourceDirectoryPath, "backend");
-const backendBundleFilePath = join(backendBuildDirectoryPath, "bundle.js");
-const frontendInjectionFilePath = join(injectionBuildDirectoryPath, "frontend.ts");
-const serviceWorkerInjectionFilePath = join(injectionBuildDirectoryPath, "serviceWorker.ts");
-const endpointsFilePath = join(backendBuildDirectoryPath, "endpoints.ts");
-const backendMainPath = join(backendDirectoryPath, "main.ts");
-const frontendMainPath = join(frontendDirectoryPath, "main.tsx");
-const frontendServiceWorkerPath = join(frontendDirectoryPath, "serviceWorker.ts");
-const frontendRoutesPath = join(frontendDirectoryPath, "routes");
-const denoConfigFilePath = join(configDirectoryPath, "deno.json");
-const tanoConfigFilePath = join(configDirectoryPath, "tano.json");
+const workspaceDirectoryPath = path.resolve(Deno.args[0] ?? Deno.cwd());
 
+const buildDirectoryPath = path.join(workspaceDirectoryPath, ".build");
+
+const backendBuildDirectoryPath = path.join(buildDirectoryPath, "backend");
+const frontendBuildDirectoryPath = path.join(buildDirectoryPath, "frontend");
+const injectionBuildDirectoryPath = path.join(buildDirectoryPath, "injection");
+const routesInjectionBuildFilePath = path.join(injectionBuildDirectoryPath, "routes.ts");
+const dataInjectionBuildFilePath = path.join(injectionBuildDirectoryPath, "data.ts");
+
+const srcDirectoryPath = path.join(workspaceDirectoryPath, "src");
+
+const backendSrcDirectoryPath = path.join(srcDirectoryPath, "backend");
+const frontendSrcDirectoryPath = path.join(srcDirectoryPath, "frontend");
+
+const backendBundleFilePath = path.join(backendBuildDirectoryPath, "bundle.js");
+const frontendMainSrcFilePath = path.join(frontendSrcDirectoryPath, "main.tsx");
+const serviceWorkerMainSrcFilePath = path.join(frontendSrcDirectoryPath, "serviceWorker.ts");
+const frontendRoutesSrcDirectoryPath = path.join(frontendSrcDirectoryPath, "routes");
+
+const frontendInjectionFilePath = path.resolve(new URL('.', import.meta.url).pathname, "../lib/frontend/injection.ts");
+
+const denoConfigFilePath = path.join(workspaceDirectoryPath, "deno.json");
 
 const denoConfig: {
     importMap?: string,
-} = await Deno.readTextFile(denoConfigFilePath)
-    .then(JSON.parse)
-    .catch(() => ({}));
+    bundlerOptions?: {
+        splitting?: boolean,
+        minify?: boolean,
+        showHelperNodes?: boolean,
+    },
+} = await (
+    Deno.readTextFile(denoConfigFilePath)
+        .then(JSON.parse)
+        .catch(() => ({}))
+);
 
-const tanoConfig: {
-    port?: number,
-    splitting?: boolean,
-    minify?: boolean,
-} = await Deno.readTextFile(tanoConfigFilePath)
-    .then(JSON.parse)
-    .catch(() => ({}));
+const importMapFilePath = path.resolve(
+    path.dirname(denoConfigFilePath),
+    denoConfig.importMap ?? "deno.json",
+);
 
-const importMapFilePath = resolve(configDirectoryPath, denoConfig.importMap ?? "imports.json");
+await Deno.remove(buildDirectoryPath, { recursive: true })
+    .catch(() => {
+    });
 
-const routes: Record<string, string> = {};
+await Deno.mkdir(buildDirectoryPath, { recursive: true })
+    .catch(() => {
+    });
 
-await Deno.remove(buildDirectoryPath, { recursive: true }).catch(() => undefined);
+await buildRoutesInjectionFile(
+    frontendRoutesSrcDirectoryPath,
+    routesInjectionBuildFilePath,
+);
 
-await Deno.mkdir(buildDirectoryPath, { recursive: true });
-await Deno.mkdir(injectionBuildDirectoryPath, { recursive: true }).catch();
-await Deno.mkdir(frontendBuildDirectoryPath, { recursive: true }).catch();
-await Deno.mkdir(backendBuildDirectoryPath, { recursive: true }).catch();
+await buildDataInjectionFile(
+    dataInjectionBuildFilePath
+);
 
-
-const buildUUID = crypto.randomUUID();
-
-for await(const { path } of walk(frontendRoutesPath, { includeDirs: false, exts: [ "tsx" ] })) {
-    const relativePath = `/${relative(frontendRoutesPath, path)}`;
-    const isIndexFile = relativePath.endsWith("/index.tsx");
-    const extensionIndex = relativePath.lastIndexOf(".tsx");
-
-    for (const routerPath of (
-        isIndexFile ? [
-            relativePath.slice(0, extensionIndex - 5),
-            relativePath.slice(0, extensionIndex - 6),
-        ] : [
-            relativePath.slice(0, extensionIndex),
-        ]
-    )) {
-        routerPath in routes || (
-            routerPath.length > 0 && (
-                routes[routerPath] = relativePath
-            )
-        );
-    }
-}
-
-await Deno.writeTextFile(serviceWorkerInjectionFilePath, renderServiceWorkerInjection());
-await Deno.writeTextFile(frontendInjectionFilePath, renderFrontendInjection({
-    routes,
-}));
-
-const endpoints: Record<string, string[]> = {};
-const sockets: Record<string, string[]> = {};
+const showHelperNodes = (
+    denoConfig.bundlerOptions?.showHelperNodes
+        ? "true"
+        : "false"
+);
 
 await esbuild.build({
     outdir: frontendBuildDirectoryPath,
     format: "esm",
     bundle: true,
     sourcemap: true,
-    splitting: false,
     treeShaking: true,
-    ...tanoConfig.minify && {
+    splitting: !!denoConfig.bundlerOptions?.splitting,
+    ...denoConfig.bundlerOptions?.minify ? {
         minify: true,
         mangleProps: /^__/,
-    },
-    entryNames: "serviceWorker",
-    chunkNames: "serviceWorker/[hash]",
-    plugins: [
-        await magicPlugin({
-            importMapFilePath,
-            backendDirectoryPath,
-            endpoints,
-        }),
-    ],
-    entryPoints: [
-        frontendServiceWorkerPath,
-    ],
-    inject: [
-        serviceWorkerInjectionFilePath,
-    ],
-    define: {
-        "csr": "false",
-        "ssr": "false",
-        "buildUUID": JSON.stringify(buildUUID),
-    },
-    external: [],
-});
-
-await esbuild.build({
-    outdir: frontendBuildDirectoryPath,
-    format: "esm",
-    bundle: true,
-    sourcemap: true,
-    splitting: tanoConfig.splitting,
-    treeShaking: true,
-    ...tanoConfig.minify && {
-        minify: true,
-        mangleProps: /^__/,
-    },
+    } : {},
     entryNames: "bundle",
     chunkNames: "bundle/[hash]",
     jsxFactory: "__createElement",
     jsxFragment: "__fragmentType",
     plugins: [
-        await magicPlugin({
-            importMapFilePath,
-            backendDirectoryPath,
-            endpoints,
-            sockets,
-        }),
+        await Plugin(importMapFilePath, backendSrcDirectoryPath),
     ],
     entryPoints: [
-        frontendMainPath,
+        frontendMainSrcFilePath,
     ],
     inject: [
         frontendInjectionFilePath,
+        dataInjectionBuildFilePath,
+        routesInjectionBuildFilePath,
     ],
     define: {
         "csr": "true",
         "ssr": "false",
-        "buildUUID": JSON.stringify(buildUUID),
+        showHelperNodes,
     },
     external: [],
 });
 
-await Deno.writeTextFile(endpointsFilePath, renderEndpoints({ endpoints, sockets, buildUUID }));
+await esbuild.build({
+    outdir: frontendBuildDirectoryPath,
+    format: "esm",
+    bundle: true,
+    sourcemap: true,
+    treeShaking: true,
+    splitting: !!denoConfig.bundlerOptions?.splitting,
+    ...denoConfig.bundlerOptions?.minify ? {
+        minify: true,
+        mangleProps: /^__/,
+    } : {},
+    entryNames: "serviceWorker",
+    chunkNames: "serviceWorker/[hash]",
+    jsxFactory: "__createElement",
+    jsxFragment: "__fragmentType",
+    plugins: [
+        await Plugin(importMapFilePath, backendSrcDirectoryPath),
+    ],
+    entryPoints: [
+        serviceWorkerMainSrcFilePath,
+    ],
+    inject: [],
+    define: {
+        "csr": "true",
+        "ssr": "false",
+        showHelperNodes,
+    },
+    external: [],
+});
 
 await esbuild.build({
     outdir: backendBuildDirectoryPath,
     format: "esm",
     bundle: true,
     sourcemap: false,
-    splitting: false,
     treeShaking: true,
-    ...tanoConfig.minify && {
+    splitting: false,
+    ...denoConfig.bundlerOptions?.minify ? {
         minify: true,
         mangleProps: /^__/,
-    },
+    } : {},
     entryNames: "bundle",
     chunkNames: "bundle/[hash]",
     jsxFactory: "__createElement",
     jsxFragment: "__fragmentType",
     plugins: [
-        await magicPlugin({
-            importMapFilePath,
-            backendDirectoryPath,
-            endpoints,
-            sockets,
-        }),
+        await Plugin(importMapFilePath, backendSrcDirectoryPath),
     ],
     entryPoints: [
-        frontendMainPath,
+        frontendMainSrcFilePath,
     ],
     inject: [
         frontendInjectionFilePath,
+        routesInjectionBuildFilePath,
     ],
     define: {
         "csr": "false",
         "ssr": "true",
-        "buildUUID": JSON.stringify(buildUUID),
+        showHelperNodes,
     },
     external: [],
 });
 
-await ssrPatch(backendBundleFilePath, "render", [
-    "location",
+await patchBundle(backendBundleFilePath, [
+    "injectedData",
     "document",
     "Document",
+    "HTMLDocument",
     "Text",
-    "SVGElement",
-    "HTMLElement",
-    "DocumentFragment",
     "Comment",
-    "fetch",
+    "HTMLElement",
+    "SVGElement",
+    "DocumentFragment",
+    "location",
     "navigator",
-    "__injectedData",
-    "__promises",
+    "fetch",
 ]);
 
-esbuild.stop();
-
-const process = Deno.run({
-    cwd: workspaceDirectoryPath,
-    cmd: [
-        `deno`,
-        `run`,
-        `--check`,
-        `--unstable`,
-        `--allow-ffi`,
-        `--config=${denoConfigFilePath}`,
-        `--allow-read=.,${dataDirectoryPath},${resourcesDirectoryPath},${frontendBuildDirectoryPath}`,
-        `--allow-write=${dataDirectoryPath}`,
-        `--allow-net=0.0.0.0:${tanoConfig.port ?? 4500},deno.land`,
-        `--allow-env=tano_PORT,DENO_SQLITE_PATH`,
-        backendMainPath,
-    ],
-    env: {
-        "tano_PORT": `${tanoConfig.port ?? 4500}`,
-        "DENO_SQLITE_PATH": resolve(Deno.env.get("DENO_SQLITE_PATH") ?? ""),
-    },
-});
-
-await process.status();
-await process.close();
+await esbuild.stop();

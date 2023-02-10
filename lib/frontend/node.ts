@@ -1,186 +1,23 @@
-import { Attributes, Component, Properties } from "./jsx.ts";
+import { restoreAttributes, restoreChildren } from "./restore.ts";
+import { swap, swapNodes, swapProperties } from "./render.ts";
+import { Component, Properties } from "./jsx.ts";
 import { Signal } from "./signal.ts";
-import { Effect } from "./effect.ts";
-import { Context } from "./context.ts";
-import { $pathname } from "./store.ts";
-import { Skip } from "./utils.ts";
+import { Effect, useEffect } from "./effect.ts";
+import { Context, useContext } from "./context.ts";
 
-
-const restoreAttributes = (element: HTMLElement): Properties =>
-    [ ...element.attributes ]
-        .reduce((carry, { name, value }) => ({ ...carry, [name]: value }), {});
-
-const restoreChildren = (element: HTMLElement): VirtualNode[] => {
-    const childrenStack: VirtualNode[][] = [ [] ];
-    const fragmentHits: Comment[] = [];
-
-    for (const childNode of element.childNodes) {
-        if (childNode instanceof Comment) {
-            if (childNode.nodeValue === `fragment start`) {
-                childrenStack.push([]);
-                fragmentHits.push(childNode);
-                continue;
-            }
-
-            if (childNode.nodeValue === `fragment end`) {
-                const fragmentStartHint = document.createComment("fragment start");
-                const fragmentEndHint = document.createComment("fragment end");
-
-                fragmentHits.pop()!.replaceWith(fragmentStartHint);
-                childNode.replaceWith(fragmentEndHint);
-
-                const fragment = new VirtualFragment(
-                    childrenStack.pop()!,
-                    fragmentStartHint,
-                    fragmentEndHint,
-                );
-                childrenStack.at(-1)!.push(fragment);
-                continue;
-            }
-        }
-
-        childrenStack.at(-1)!.push(VirtualNode.__from(childNode));
-    }
-
-    const children = childrenStack.pop();
-
-    if (children) {
-        return children;
-    } else {
-        throw new Error();
-    }
-};
-
-const replaceAttribute = (node: HTMLElement, propertyName: string, previousValue: unknown, nextValue: unknown) => {
-    const attributeName = (<Record<string, string>>{
-        "className": "class",
-    })[propertyName] ?? propertyName;
-
-    if (previousValue !== nextValue) {
-        if (propertyName.startsWith("on") && (previousValue instanceof Function || nextValue instanceof Function)) {
-            const event = propertyName.slice(2).toLowerCase();
-
-            if (previousValue instanceof Function) {
-                node.removeEventListener(event, previousValue as EventListener);
-            }
-
-            if (nextValue instanceof Function) {
-                node.addEventListener(event, nextValue as EventListener);
-            }
-
-            return;
-        }
-
-        if (nextValue) {
-            if (typeof nextValue === "string") {
-                node.setAttribute(attributeName, nextValue);
-            } else if (typeof nextValue === "boolean") {
-                if (ssr) {
-                    if (nextValue) {
-                        node.setAttribute(attributeName, "");
-                    } else {
-                        node.removeAttribute(attributeName);
-                    }
-                } else {
-                    node.toggleAttribute(attributeName, nextValue);
-                }
-            } else {
-                throw new Error();
-            }
-        } else {
-            node.removeAttribute(attributeName);
-        }
-    }
-};
-
-function handleAnchorClick(this: HTMLAnchorElement, event: MouseEvent) {
-    const href = this.getAttribute("href");
-
-    if (href?.startsWith("/")) {
-        event.preventDefault();
-        $pathname.value = href;
-    }
-}
-
-const replaceAttributes = (node: HTMLElement, previousAttributes: Attributes, nextAttributes: Attributes) => {
-    if (csr && node instanceof HTMLAnchorElement) {
-        node.removeEventListener("click", handleAnchorClick);
-        node.addEventListener("click", handleAnchorClick);
-    }
-
-    for (const name in { ...previousAttributes, ...nextAttributes }) {
-        replaceAttribute(node, name, previousAttributes[name], nextAttributes[name]);
-    }
-};
-
-const replaceChildren = (parentNode: Node, previousChildren: VirtualNode[], nextChildren: VirtualNode[], referenceNode: Node | null = null) => {
-    const maxLength = Math.max(previousChildren.length, nextChildren.length);
-
-    for (let index = 0; index < maxLength; ++index) {
-        const previousChild = previousChildren[index];
-        const nextChild = nextChildren[index];
-
-        if (previousChild && nextChild) {
-            nextChild.__replace(previousChild);
-        } else if (previousChild) {
-            previousChild.__remove();
-        } else {
-            parentNode.insertBefore(nextChild.__inflate(), referenceNode);
-        }
-    }
-};
 
 export abstract class VirtualNode {
-    __parent?: VirtualNode;
+    parent?: VirtualNode;
 
     static __from(value: unknown): VirtualNode {
         if (value instanceof VirtualNode) {
             return value;
         }
 
-        if (value instanceof Signal) {
-            let currentNode: VirtualNode;
-
-            new Effect(() => {
-                const nextNode = VirtualNode.__from(value.value);
-
-                if (nextNode instanceof VirtualComponent && nextNode.__initializer === Skip) {
-                    return;
-                }
-
-                if (nextNode !== currentNode) {
-                    if (currentNode) {
-                        currentNode.__cleanup?.();
-
-                        if (currentNode.__parent instanceof VirtualTag || currentNode.__parent instanceof VirtualFragment) {
-                            const index = currentNode.__parent.__children.indexOf(currentNode);
-
-                            if (index !== -1) {
-                                currentNode.__parent.__children[index] = nextNode;
-                            } else {
-                                throw new Error();
-                            }
-                        }
-
-                        if (currentNode.__parent instanceof VirtualComponent) {
-                            if (currentNode.__parent.__initializedNode) {
-                                currentNode.__parent.__initializedNode = nextNode;
-                            } else {
-                                throw new Error();
-                            }
-                        }
-
-                        nextNode.__replace(currentNode);
-                        nextNode.__parent = currentNode.__parent;
-                        currentNode.__parent = undefined;
-                        nextNode.__mount?.();
-                    }
-                }
-
-                currentNode = nextNode;
-            });
-
-            return currentNode!;
+        if (value instanceof Array) {
+            return new VirtualFragment(
+                value.map(VirtualNode.__from),
+            );
         }
 
         if (value instanceof Text) {
@@ -206,27 +43,71 @@ export abstract class VirtualNode {
             );
         }
 
-        if (typeof value === "string" || typeof value === "number") {
+        if (value instanceof Signal) {
+            let currentVirtualNode: VirtualNode;
+
+            new Effect(() => {
+                const virtualNode = VirtualNode.__from(value.value);
+
+                useContext(undefined, () =>
+                    useEffect(undefined, () => {
+                        if (currentVirtualNode && currentVirtualNode !== virtualNode) {
+                            const previousParent = currentVirtualNode.parent;
+
+                            currentVirtualNode.__unmount?.();
+                            currentVirtualNode.parent = undefined;
+
+                            if (previousParent instanceof VirtualFragment || previousParent instanceof VirtualTag) {
+                                const index = previousParent.__children.indexOf(currentVirtualNode);
+
+                                if (index !== -1) {
+                                    (previousParent.__children[index] = virtualNode)
+                                        .parent = previousParent;
+                                } else {
+                                    throw new Error();
+                                }
+                            } else if (previousParent instanceof VirtualComponent) {
+                                (previousParent.__initializedNode = virtualNode)
+                                    .parent = previousParent;
+                            } else {
+                                throw new Error();
+                            }
+
+                            swap(currentVirtualNode, virtualNode);
+                            virtualNode.__mount?.();
+                        }
+                    }),
+                );
+
+                currentVirtualNode = virtualNode;
+            });
+
+            return currentVirtualNode!;
+        }
+
+        if (["string", "number"].includes(typeof value)) {
             return new VirtualText(`${value}`);
         }
 
-        if (typeof value === "undefined") {
-            return new VirtualComment("placeholder");
+        if (["undefined", "boolean"].includes(typeof value)) {
+            return (
+                ssr || showHelperNodes
+                    ? new VirtualComment("placeholder")
+                    : new VirtualText("")
+            );
         }
 
-        console.error("VirtualNode::from", value);
+        csr && console.error(value);
         throw new Error();
     }
 
-    __mount?(): void;
-
-    __cleanup?(): void;
+    abstract __inflate(): Node[];
 
     abstract __remove(): void;
 
-    abstract __inflate(): Node;
+    __mount?(): void;
 
-    abstract __replace(previousNode: VirtualNode): void;
+    __unmount?(): void;
 }
 
 export class VirtualText extends VirtualNode {
@@ -241,46 +122,11 @@ export class VirtualText extends VirtualNode {
     }
 
     __inflate() {
-        return this.__node = document.createTextNode(this.__content);
+        return [this.__node = document.createTextNode(this.__content)];
     }
 
     __remove() {
         this.__node?.remove();
-    }
-
-    __replace(previousNode: VirtualNode) {
-        if (previousNode instanceof VirtualText) {
-            if (!previousNode.__node) throw new Error();
-
-            const node = this.__node = previousNode.__node;
-
-            if (previousNode.__content !== this.__content) {
-                node.nodeValue = this.__content;
-            }
-
-            return;
-        }
-
-        if (previousNode instanceof VirtualText || previousNode instanceof VirtualTag) {
-            if (!previousNode.__node) throw new Error();
-            previousNode.__node.replaceWith(this.__inflate());
-            return;
-        }
-
-        if (previousNode instanceof VirtualFragment) {
-            const referenceNode = previousNode.__startHint ?? previousNode.__endHint;
-            const parentNode = referenceNode?.parentNode;
-
-            if (!referenceNode || !parentNode) throw new Error();
-
-            const node = this.__inflate();
-            parentNode.insertBefore(node, referenceNode);
-            previousNode.__remove();
-            return;
-        }
-
-        console.log(this, previousNode);
-        throw new Error();
     }
 }
 
@@ -296,151 +142,104 @@ export class VirtualComment extends VirtualNode {
     }
 
     __inflate() {
-        return this.__node = document.createComment(this.__content);
+        return [this.__node = document.createComment(this.__content)];
     }
 
     __remove() {
         this.__node?.remove();
-    }
-
-    __replace(previousNode: VirtualNode) {
-        if (previousNode instanceof VirtualComment) {
-            if (!previousNode.__node) throw new Error();
-
-            const node = this.__node = previousNode.__node;
-
-            if (previousNode.__content !== this.__content) {
-                node.nodeValue = this.__content;
-            }
-
-            return;
-        }
-
-        if (previousNode instanceof VirtualText || previousNode instanceof VirtualTag) {
-            if (!previousNode.__node) throw new Error();
-            previousNode.__node.replaceWith(this.__inflate());
-            return;
-        }
-
-        if (previousNode instanceof VirtualFragment) {
-            const referenceNode = previousNode.__startHint ?? previousNode.__endHint;
-            const parentNode = referenceNode?.parentNode;
-
-            if (!referenceNode || !parentNode) throw new Error();
-
-            const node = this.__inflate();
-            parentNode.insertBefore(node, referenceNode);
-            previousNode.__remove();
-            return;
-        }
-
-        console.log(this, previousNode);
-        throw new Error();
     }
 }
 
 export class VirtualTag extends VirtualNode {
     readonly __tagName: string;
-    readonly __attributes: Attributes;
+    readonly __properties: Properties;
     readonly __children: VirtualNode[];
 
     __node?: HTMLElement;
 
-    constructor(tagName: string, attributes: Attributes, children: VirtualNode[], node?: HTMLElement) {
+    constructor(tagName: string, properties: Properties, children: VirtualNode[], node?: HTMLElement) {
         super();
         this.__tagName = tagName;
-        this.__attributes = attributes;
-        this.__node = node;
+        this.__properties = properties;
 
         for (const child of (this.__children = children)) {
-            child.__parent = this;
+            child.parent = this;
         }
+
+        this.__node = node;
+    }
+
+    __inflate() {
+        const node = document.createElement(this.__tagName);
+
+        swapProperties(node, {}, this.__properties);
+        swapNodes(node, [], this.__children);
+
+        return [this.__node = node];
     }
 
     __mount() {
+        const effects = (
+            (this.__node as unknown as {
+                __effects?: Record<string, Effect>,
+            })
+                ?.__effects
+        );
+
+        for (const propertyName in effects) {
+            effects[propertyName]?.__resume();
+        }
+
         for (const child of this.__children) {
             child.__mount?.();
         }
     }
 
-    __cleanup() {
+    __unmount() {
         for (const child of this.__children) {
-            child.__cleanup?.();
+            child.__unmount?.();
         }
-    }
 
-    __inflate() {
-        const node = this.__node = document.createElement(this.__tagName);
+        const effects = (
+            (this.__node as unknown as {
+                __effects?: Record<string, Effect>,
+            })
+                ?.__effects
+        );
 
-        replaceAttributes(node, {}, this.__attributes);
-        replaceChildren(node, [], this.__children);
-
-        return node;
+        for (const propertyName in effects) {
+            effects[propertyName]?.__suspend();
+        }
     }
 
     __remove() {
         this.__node?.remove();
-    }
-
-    __replace(previousNode: VirtualNode) {
-        if (previousNode instanceof VirtualText || previousNode instanceof VirtualComment || previousNode instanceof VirtualTag) {
-            if (!previousNode.__node) throw new Error();
-
-            if (previousNode instanceof VirtualTag) {
-                if (previousNode.__tagName === this.__tagName) {
-                    const node = this.__node = previousNode.__node;
-
-                    replaceAttributes(node, previousNode.__attributes, this.__attributes);
-                    replaceChildren(node, previousNode.__children, this.__children);
-
-                    return;
-                }
-            }
-
-            const node = this.__inflate();
-            previousNode.__node.replaceWith(node);
-            return;
-        }
-
-        if (previousNode instanceof VirtualFragment) {
-            const referenceNode = previousNode.__startHint ?? previousNode.__endHint;
-            const parentNode = referenceNode?.parentNode;
-
-            if (!referenceNode || !parentNode) throw new Error();
-
-            const node = this.__inflate();
-
-            parentNode.insertBefore(node, referenceNode);
-
-            previousNode.__remove();
-            return;
-        }
-
-        if (previousNode instanceof VirtualComponent) {
-            if (!previousNode.__initializedNode) throw new Error();
-            this.__replace(previousNode.__initializedNode);
-            return
-        }
-
-        console.error(this, previousNode);
-        throw new Error();
     }
 }
 
 export class VirtualFragment extends VirtualNode {
     readonly __children: VirtualNode[];
 
-    __startHint?: Comment;
-    __endHint?: Comment;
+    __startHint?: Comment | Text;
+    __endHint?: Comment | Text;
 
-    constructor(nodes: VirtualNode[], startHint?: Comment, endHint?: Comment) {
+    constructor(children: VirtualNode[], startHint?: Comment | Text, endHint?: Comment | Text) {
         super();
+
+        for (const child of (this.__children = children)) {
+            child.parent = this;
+        }
+
         this.__startHint = startHint;
         this.__endHint = endHint;
+    }
 
-        for (const node of (this.__children = nodes)) {
-            node.__parent = this;
-        }
+    __inflate() {
+        return [
+            this.__startHint = ssr ? document.createComment("fragment start") : document.createTextNode(""),
+            ...this.__children.reduce((carry, child) => [...carry, ...child.__inflate()], <Node[]>[]),
+            this.__endHint = ssr ? document.createComment("fragment end") : document.createTextNode(""),
+        ];
     }
 
     __mount() {
@@ -449,68 +248,47 @@ export class VirtualFragment extends VirtualNode {
         }
     }
 
-    __cleanup() {
+    __unmount() {
         for (const child of this.__children) {
-            child.__cleanup?.();
+            child.__unmount?.();
         }
-    }
-
-    __inflate() {
-        const node = document.createDocumentFragment();
-        node.appendChild(this.__startHint ??= document.createComment("fragment start"));
-        replaceChildren(node, [], this.__children);
-        node.appendChild(this.__endHint ??= document.createComment("fragment end"));
-        return node;
     }
 
     __remove() {
         this.__startHint?.remove();
+
+        for (const child of this.__children) {
+            child.__remove();
+        }
+
         this.__endHint?.remove();
-
-        for (const node of this.__children) {
-            node.__remove();
-        }
-    }
-
-    __replace(previousNode: VirtualNode) {
-        if (previousNode instanceof VirtualFragment) {
-            if (!previousNode.__startHint || !previousNode.__endHint) throw new Error();
-
-            [ this.__startHint, previousNode.__startHint ] = [ previousNode.__startHint, undefined ];
-            [ this.__endHint, previousNode.__endHint ] = [ previousNode.__endHint, undefined ];
-
-            const referenceNode = this.__startHint;
-            const parentNode = referenceNode?.parentNode;
-
-            if (referenceNode && parentNode) {
-                replaceChildren(parentNode, previousNode.__children, this.__children, referenceNode);
-            } else {
-                throw new Error();
-            }
-
-            return;
-        }
-
-        console.error(previousNode);
-        throw new Error();
     }
 }
 
-export type Listener = (this: VirtualComponent) => void | void;
+export type UpdateEvent = {
+    properties: Properties,
+    children?: VirtualNode[],
+    preventDefault(): void,
+};
 
-export class VirtualComponent extends VirtualNode {
-    readonly __initializer: Component;
-    readonly __properties: Properties;
-    readonly __children: unknown[];
-    readonly __context: Context;
+export class VirtualComponent<T extends Properties = Properties> extends VirtualNode {
+    static __current?: VirtualComponent<any>;
 
+    readonly __properties: T;
+    readonly __children?: VirtualNode[];
+
+    __context: Context;
+    __initializer: Component<T>;
     __listeners?: {
-        mount?: Set<Listener>,
-        cleanup?: Set<Listener>,
+        __mount?: Set<() => void>,
+        __unmount?: Set<() => void>,
+        __cleanup?: Set<() => void>,
+        __update?: Set<(event: UpdateEvent) => void>,
     };
+
     __initializedNode?: VirtualNode;
 
-    constructor(initializer: Component, properties: Properties, children: unknown[]) {
+    constructor(initializer: Component<T>, properties: T, children?: VirtualNode[]) {
         super();
         this.__initializer = initializer;
         this.__properties = properties;
@@ -518,71 +296,93 @@ export class VirtualComponent extends VirtualNode {
         this.__context = new Context();
     }
 
-    addEventListener(event: "mount", listener: Listener): void;
-    addEventListener(event: "cleanup", listener: Listener): void;
-    addEventListener(event: "mount" | "cleanup", listener: Listener) {
-        ((this.__listeners ??= {})[event] ??= new Set()).add(listener);
-    }
-
-    __mount() {
-        this.__context.__resume();
-        this.__context.use(() => {
-            for (const listener of this.__listeners?.mount ?? []) {
-                listener.call(this);
-            }
-
-            this.__initializedNode?.__mount?.();
-        });
-    }
-
-    __cleanup() {
-        this.__context.use(() => {
-            this.__initializedNode?.__cleanup?.();
-
-            for (const listener of this.__listeners?.cleanup ?? []) {
-                listener.call(this);
-            }
-        });
-        this.__context.__suspend();
-    }
-
     __initialize() {
-        if (this.__initializer === Skip) throw new Error();
-
         if (!this.__initializedNode) {
-            (
-                this.__initializedNode = (
-                    this.__context.use(() =>
-                        Effect.__prevent(() =>
-                            VirtualNode.__from(
-                                this.__initializer.call(this, this.__properties, this.__children),
-                            ),
-                        ),
-                    )
-                )
-            ).__parent = this;
+            const previousComponent = VirtualComponent.__current;
+
+            VirtualComponent.__current = this;
+
+            (this.__initializedNode ??= useContext(this.__context, useEffect(undefined, () => () =>
+                VirtualNode.__from(this.__initializer(this.__properties, this.__children))
+            )))
+                .parent = this;
+
+            VirtualComponent.__current = previousComponent;
         }
 
         return this.__initializedNode;
     }
 
-    __inflate() {
-        return this.__initialize().__inflate();
+    __inflate(): Node[] {
+        return useContext(this.__context, useEffect(undefined, () => () =>
+            this.__initialize().__inflate()
+        ));
+    }
+
+    __mount() {
+        this.__context.__resume();
+
+        useContext(this.__context, () => {
+            for (const listener of (this.__listeners?.__mount ?? [])) {
+                listener();
+            }
+        });
+
+        this.__initializedNode?.__mount?.();
+    }
+
+    __unmount() {
+        this.__initializedNode?.__unmount?.();
+
+        useContext(this.__context, () => {
+            for (const listener of (this.__listeners?.__unmount ?? [])) {
+                listener();
+            }
+        });
+
+        this.__context.__suspend();
+    }
+
+    __update(properties: Properties, children?: VirtualNode[]) {
+        let preventDefault = false;
+
+        useContext(this.__context, () => {
+            for (const listener of (this.__listeners?.__update ?? [])) {
+                listener({
+                    properties,
+                    children,
+                    preventDefault() {
+                        preventDefault ||= true
+                    },
+                });
+            }
+        });
+
+        return preventDefault;
     }
 
     __remove() {
         this.__initializedNode?.__remove();
     }
-
-    __replace(previousNode: VirtualNode) {
-        if (this.__initializer === Skip) return;
-
-        if (previousNode instanceof VirtualComponent) {
-            if (!previousNode.__initializedNode) throw new Error();
-            this.__replace(previousNode.__initializedNode);
-            return;
-        }
-
-        this.__initialize().__replace(previousNode);
-    }
 }
+
+export const onMount = (callback: () => void) =>
+    (
+        (VirtualComponent.__current!.__listeners ??= {})
+            .__mount ??= new Set()
+    )
+        .add(callback);
+
+export const onUnmount = (callback: () => void) =>
+    (
+        (VirtualComponent.__current!.__listeners ??= {})
+            .__unmount ??= new Set()
+    )
+        .add(callback);
+
+export const onUpdate = (callback: (event: UpdateEvent) => void) =>
+    (
+        (VirtualComponent.__current!.__listeners ??= {})
+            .__update ??= new Set()
+    )
+        .add(callback);

@@ -14,6 +14,14 @@ export const isInstalled = (
         .matches ?? undefined
 );
 
+export const isCached = (
+    (
+        performance.getEntriesByType("navigation")
+            [0] as unknown as { transferSize: number }
+    )
+        ?.transferSize === 0
+);
+
 export const notifyRenderBlockingPromise = <T>(promise: Promise<T>) => {
     renderBlockingPromises?.push(promise);
 };

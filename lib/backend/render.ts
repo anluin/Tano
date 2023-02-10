@@ -70,17 +70,21 @@ export const buildRenderedResponse = async (url: URL, request: Request, options:
         console.log(`[ERROR] failed to render page: '${url}':`, error);
     }
 
-    const script = document.createElement("script");
-
-    script.setAttribute("src", "/bundle.js");
-    script.setAttribute("type", "module");
-    script.appendChild(document.createTextNode(JSON.stringify(injectedData)));
-
-    (
+    const targetElement = (
         document.querySelector("body") ??
         document.documentElement
-    )
-        ?.appendChild(script);
+    );
+
+    const bundleScript = document.createElement("script");
+    bundleScript.setAttribute("src", "/bundle.js");
+    bundleScript.setAttribute("type", "module");
+    bundleScript.appendChild(document.createTextNode(JSON.stringify(injectedData)));
+    targetElement?.insertBefore(bundleScript, targetElement.firstChild);
+
+    // https://stackoverflow.com/a/57888310
+    const dummyScript = document.createElement("script");
+    dummyScript.appendChild(document.createTextNode("0"));
+    targetElement?.insertBefore(dummyScript, targetElement.firstChild);
 
     const body = `<!DOCTYPE html>${document.documentElement?.outerHTML}`;
 

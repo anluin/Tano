@@ -21,13 +21,16 @@ export class Signal<T> {
     }
 
     set value(value: T) {
-        const effects = [...this.__effects];
+        const effects = [ ...this.__effects ];
 
         this.__effects.clear();
         this.__value = value;
 
         for (const effect of effects) {
-            if (effect.__signals.has(this) && effect.__signals.get(this) === this.__value) {
+            if (
+                effect.__signals.has(this) &&
+                effect.__signals.get(this) === this.__value
+            ) {
                 this.__effects.add(effect);
             } else {
                 effect.__trigger();
@@ -39,3 +42,7 @@ export class Signal<T> {
         return computed(() => callback(this.value));
     }
 }
+
+export const setSignal = <T>(signal: Signal<T>) => (value: T) => {
+    signal.value = value;
+};

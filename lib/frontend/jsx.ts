@@ -1,5 +1,7 @@
 import { VirtualComponent, VirtualFragment, VirtualNode, VirtualTag } from "./node.ts";
 import { Signal } from "./signal.ts";
+import { throwError } from "../shared/utils.ts";
+import { ReadonlySignal } from "./utils.ts";
 
 
 declare global {
@@ -8,7 +10,7 @@ declare global {
     namespace JSX {
         type IntrinsicElements = Record<string, unknown>;
 
-        type Element = undefined | string | number | Element[] | VirtualNode | Signal<JSX.Element>;
+        type Element = undefined | string | number | Element[] | VirtualNode | ReadonlySignal<JSX.Element>;
     }
 }
 
@@ -27,9 +29,6 @@ const isFragmentArgs = (args: unknown[]): args is [typeof fragmentType, null, ..
 const isComponentArgs = (args: unknown[]): args is [Component, Properties | null, ...unknown[]] =>
     args[0] instanceof Function;
 
-const throwError = (message?: string) => {
-    throw new Error(message);
-};
 
 export const fragmentType = Symbol();
 

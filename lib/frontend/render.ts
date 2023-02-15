@@ -14,7 +14,7 @@ declare global {
 }
 
 export const swapProperty = (node: HTMLElement, propertyName: string, previousValue: unknown, nextValue: unknown): void => {
-    if (csr && node instanceof HTMLInputElement && propertyName === "value") {
+    if (csr && (node instanceof HTMLInputElement || node instanceof HTMLTextAreaElement) && propertyName === "value") {
         const listeners = (
             (node as unknown as {
                 __listeners?: Record<string, () => void>,
@@ -98,6 +98,8 @@ export const swapProperty = (node: HTMLElement, propertyName: string, previousVa
         node.removeAttribute(attributeName);
     } else if (["string", "number"].includes(typeof nextValue)) {
         node.setAttribute(attributeName, `${nextValue}`);
+        // TODO: Use proper typings
+        (node as any)[propertyName] = nextValue;
     } else if (typeof nextValue === "boolean") {
         if (ssr) {
             if (nextValue) {
@@ -240,6 +242,9 @@ export const directSwap = (previousNode: VirtualNode, nextNode: VirtualNode) => 
                     [nextNode.__context, previousNode.__context] = [previousNode.__context, nextNode.__context];
                     [nextNode.__listeners, previousNode.__listeners] = [previousNode.__listeners, undefined];
 
+                    // TODO: Future investigation why this fixes the error
+                    nextNode.__initializedNode.parent = nextNode;
+
                     return;
                 }
             }
@@ -282,7 +287,13 @@ export const swap = (
 
                     await maximalComputationTime(100, async delay => {
                         for (let args: undefined | Parameters<typeof directSwap>; (args = queue.shift());) {
-                            directSwap(...args);
+                            try {
+                                // TODO: investigate error
+                                directSwap(...args);
+                            } catch (error) {
+                                console.error(error);
+                            }
+
                             await delay();
                         }
                     });

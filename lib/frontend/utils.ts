@@ -62,7 +62,7 @@ export const maximalComputationTime = <R>(ms: number, callback: (delay: () => Pr
     });
 };
 
-export type ReadonlySignal<T> = Omit<Signal<T>, "value"> & { readonly value: T };
+export type ReadonlySignal<T> = Omit<Signal<T>, "value" | "set"> & { readonly value: T };
 
 export type MaybeSignal<T> = T | Signal<T>;
 export type MaybeReadonlySignal<T> = T | ReadonlySignal<T>;

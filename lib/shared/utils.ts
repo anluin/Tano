@@ -164,3 +164,17 @@ export class WebSocketConnection<I extends JSONValue = JSONValue, O extends JSON
         removeEventListeners();
     }
 }
+
+export const resolvablePromise = <T = void>(): Promise<T> & { resolve: (value: T) => void, reject: (...error: ([ unknown ] | [])) => void } => {
+    let resolve: (value: T) => void;
+    let reject: (...error: ([ unknown ] | [])) => void;
+
+    return Object.assign(new Promise<T>((...args) => [ resolve, reject ] = args), {
+        resolve: resolve!,
+        reject: reject!,
+    });
+};
+
+export const throwError = (message?: string) => {
+    throw new Error(message);
+};

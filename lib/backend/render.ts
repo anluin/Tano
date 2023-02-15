@@ -39,7 +39,7 @@ export const buildRenderedResponse = async (url: URL, request: Request, options:
                 userAgent: request.headers.get("User-Agent") ?? "",
             },
             fetch: async (input: URL | RequestInfo, init?: RequestInit | undefined): Promise<Response> => {
-                if (typeof input === "string" && input.startsWith("/")) {
+                if (typeof input === "string" && !/https?:\/\//.test(input)) {
                     const url = new URL(input, location.origin);
                     const fetchRequest = new Request(url, init);
 

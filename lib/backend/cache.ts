@@ -32,7 +32,9 @@ export const preloadFiles = async () => {
     };
 
     for await(const entry of fs.walk(".build/frontend", { includeDirs: false })) {
-        preloadCachePromises.push(preloadEntry(".build/frontend", entry));
+        preloadCachePromises.push(preloadEntry(".build/frontend", entry, {
+            "Cache-Control": "max-age=0",
+        }));
     }
 
     for await(const entry of fs.walk("src/resources", { includeDirs: false })) {

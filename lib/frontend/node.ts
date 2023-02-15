@@ -265,8 +265,8 @@ export class VirtualFragment extends VirtualNode {
     }
 }
 
-export type UpdateEvent = {
-    properties: Properties,
+export type UpdateEvent<T extends Properties = Properties> = {
+    properties: T,
     children?: VirtualNode[],
     preventDefault(): void,
 };
@@ -283,8 +283,10 @@ export class VirtualComponent<T extends Properties = Properties> extends Virtual
         __mount?: Set<() => void>,
         __unmount?: Set<() => void>,
         __cleanup?: Set<() => void>,
-        __update?: Set<(event: UpdateEvent) => void>,
+        __update?: Set<(event: UpdateEvent<T>) => void>,
     };
+
+    __mounted = false;
 
     __initializedNode?: VirtualNode;
 
@@ -298,6 +300,12 @@ export class VirtualComponent<T extends Properties = Properties> extends Virtual
 
     __initialize() {
         if (!this.__initializedNode) {
+            const wasMounted = this.__mounted;
+
+            if (wasMounted) {
+                this.__unmount();
+            }
+
             const previousComponent = VirtualComponent.__current;
 
             VirtualComponent.__current = this;
@@ -308,6 +316,10 @@ export class VirtualComponent<T extends Properties = Properties> extends Virtual
                 .parent = this;
 
             VirtualComponent.__current = previousComponent;
+
+            if (wasMounted) {
+                this.__mount();
+            }
         }
 
         return this.__initializedNode;
@@ -320,27 +332,33 @@ export class VirtualComponent<T extends Properties = Properties> extends Virtual
     }
 
     __mount() {
-        this.__context.__resume();
+        if (!this.__mounted) {
+            this.__mounted = true;
+            this.__context.__resume();
 
-        useContext(this.__context, () => {
-            for (const listener of (this.__listeners?.__mount ?? [])) {
-                listener();
-            }
-        });
+            useContext(this.__context, () => {
+                for (const listener of (this.__listeners?.__mount ?? [])) {
+                    listener();
+                }
+            });
 
-        this.__initializedNode?.__mount?.();
+            this.__initializedNode?.__mount?.();
+        }
     }
 
     __unmount() {
-        this.__initializedNode?.__unmount?.();
+        if (this.__mounted) {
+            this.__initializedNode?.__unmount?.();
 
-        useContext(this.__context, () => {
-            for (const listener of (this.__listeners?.__unmount ?? [])) {
-                listener();
-            }
-        });
+            useContext(this.__context, () => {
+                for (const listener of (this.__listeners?.__unmount ?? [])) {
+                    listener();
+                }
+            });
 
-        this.__context.__suspend();
+            this.__context.__suspend();
+            this.__mounted = false;
+        }
     }
 
     __update(properties: Properties, children?: VirtualNode[]) {
@@ -349,6 +367,7 @@ export class VirtualComponent<T extends Properties = Properties> extends Virtual
         useContext(this.__context, () => {
             for (const listener of (this.__listeners?.__update ?? [])) {
                 listener({
+                    // @ts-ignore: TODO: Use proper typings
                     properties,
                     children,
                     preventDefault() {
@@ -380,7 +399,7 @@ export const onUnmount = (callback: () => void) =>
     )
         .add(callback);
 
-export const onUpdate = (callback: (event: UpdateEvent) => void) =>
+export const onUpdate = <T extends Properties = Properties>(callback: (event: UpdateEvent<T>) => void) =>
     (
         (VirtualComponent.__current!.__listeners ??= {})
             .__update ??= new Set()

@@ -1,0 +1,5 @@
+{
+    "tasks": {
+        "install": "deno install --force --name tano -A src/cli/main.ts"
+    }
+}

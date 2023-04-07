@@ -1,0 +1,15 @@
+{
+    "compilerOptions": {
+        "lib": [
+            "deno.ns",
+            "dom",
+            "dom.iterable"
+        ]
+    },
+    "imports": {
+        "@tano/": "https://deno.land/x/tano/lib/"
+    },
+    "tasks": {
+        "serve": "tano serve --check"
+    }
+}

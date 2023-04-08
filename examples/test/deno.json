@@ -8,8 +8,5 @@
     },
     "imports": {
         "https://deno.land/x/tano@0.0.17/lib/": "../../src/lib/"
-    },
-    "tasks": {
-        "serve": "tano serve --check"
     }
 }

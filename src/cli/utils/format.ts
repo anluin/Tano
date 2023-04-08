@@ -26,4 +26,5 @@ const format = (strings: TemplateStringsArray, ...expressions: (string | number)
 };
 
 export const ts = format;
+export const js = format;
 export const tsx = format;

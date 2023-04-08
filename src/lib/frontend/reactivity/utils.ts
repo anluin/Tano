@@ -39,10 +39,10 @@ export const createSignalFromMediaQuery = (
             if (cache[query]) return cache[query];
 
             if (csr) {
-                const mediaQueryList = window.matchMedia(query);
-                const $value = new Signal(mediaQueryList.matches);
+                const mediaQueryList = window.matchMedia?.(query);
+                const $value = new Signal(mediaQueryList?.matches ?? ssr);
 
-                mediaQueryList.addEventListener("change", (event) => {
+                mediaQueryList?.addEventListener("change", (event) => {
                     $value.set(event.matches);
                 });
 

@@ -1,4 +1,4 @@
-import { ComponentInitializer, MouseEventListener, render, Signal } from "https://deno.land/x/tano/lib/frontend/mod.ts";
+import { ComponentInitializer, MouseEventListener, render, Signal } from "https://deno.land/x/tano@0.0.17/lib/frontend/mod.ts";
 
 import { api } from "../shared/api.ts";
 

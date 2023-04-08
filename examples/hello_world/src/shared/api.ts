@@ -1,4 +1,4 @@
-import { boolean, endpoint, number, object, result, string } from "https://deno.land/x/tano/lib/shared/api.ts";
+import { boolean, endpoint, number, object, result, string } from "https://deno.land/x/tano@0.0.17/lib/shared/api.ts";
 
 
 export const api = {

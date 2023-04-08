@@ -1,4 +1,4 @@
-import { impl, serve } from "https://deno.land/x/tano/lib/backend/mod.ts";
+import { impl, serve } from "https://deno.land/x/tano@0.0.17/lib/backend/mod.ts";
 
 import { api } from "../shared/api.ts";
 

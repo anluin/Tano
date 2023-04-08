@@ -10,8 +10,12 @@ export async function serve(workspaceDirectoryPath: string, options: Options) {
     const backendDirectoryPath = std.path.join(sourceDirectoryPath, "backend");
     const backendMainFilePath = std.path.join(backendDirectoryPath, "main.ts");
 
+    const buildDirectoryPath = std.path.join(workspaceDirectoryPath, ".build");
+    const injectionsBuildDirectoryPath = std.path.join(buildDirectoryPath, "injections");
+    const importMapInjectionFilePath = std.path.join(injectionsBuildDirectoryPath, "importMap.json");
+
     const process = Deno.run({
-        cmd: [ "deno", "run", "--config", denoConfigFilePath, "--check", "-A", backendMainFilePath, "--port", options.port ],
+        cmd: [ "deno", "run", "--config", denoConfigFilePath, "--check", "--importmap", importMapInjectionFilePath, "-A", backendMainFilePath, "--port", options.port ],
         cwd: workspaceDirectoryPath,
     });
 

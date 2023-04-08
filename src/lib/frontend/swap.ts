@@ -62,7 +62,7 @@ export const swapProperties = (element: HTMLElement, previousProperties: Record<
                     effects[propertyName]?._cancel();
                     delete effects[propertyName];
 
-                    if ((
+                    if (csr && (
                         element instanceof HTMLInputElement ||
                         element instanceof HTMLTextAreaElement
                     ) && propertyName === "value" && nextProperties[propertyName] instanceof Signal) {
@@ -73,7 +73,7 @@ export const swapProperties = (element: HTMLElement, previousProperties: Record<
                         });
                     }
 
-                    if ((
+                    if (csr && (
                         element instanceof HTMLSelectElement
                     ) && propertyName === "selectedIndex" && nextProperties[propertyName] instanceof Signal) {
                         const $selectedIndex = nextProperties[propertyName] as Signal<number | undefined>;
@@ -140,7 +140,11 @@ export const swap = (previousNode: VirtualNode, nextNode: VirtualNode) => {
 
             const node = ([ nextNode._node, previousNode._node ] = [ previousNode._node, undefined ])[0];
 
-            node.textContent = nextNode._content;
+            if (csr) {
+                node.textContent = nextNode._content;
+            } else {
+                node.replaceWith(nextNode._node = document.createTextNode(nextNode._content));
+            }
 
             return;
         }

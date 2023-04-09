@@ -1,10 +1,7 @@
 import { ComponentInitializer, ComponentInterface } from "../jsx.ts";
-import { VirtualParentNode } from "./parent.ts";
-import { VirtualNode } from "./node.ts";
-import { preventEffects, useContext } from "../reactivity/utils.ts";
 import { Context } from "../reactivity/context.ts";
-import { toVirtualNode } from "./utils.ts";
-
+import { preventEffects, useContext } from "../reactivity/utils.ts";
+import { toVirtualNode, VirtualNode, VirtualParentNode } from "./mod.ts";
 
 export class VirtualComponentNode extends VirtualParentNode {
     readonly _initializer: ComponentInitializer;
@@ -67,13 +64,19 @@ export class VirtualComponentNode extends VirtualParentNode {
     }
 
     _mount() {
-        super._mount();
-        this._interface?._trigger("mount", {});
         this._context?._restore();
+        super._mount();
+
+        useContext(this._context, () => {
+            this._interface?._trigger("mount", {});
+        });
     }
 
     _unmount() {
-        this._interface?._trigger("unmount", {});
+        useContext(this._context, () => {
+            this._interface?._trigger("unmount", {});
+        });
+
         super._unmount();
         this._context?._suspend();
     }
@@ -84,7 +87,10 @@ export class VirtualComponentNode extends VirtualParentNode {
     }
 
     _finalize() {
-        this._interface?._trigger("finalize", {});
+        useContext(this._context, () => {
+            this._interface?._trigger("finalize", {});
+        });
+
         super._finalize();
 
         this._context?._cancel();
@@ -93,3 +99,5 @@ export class VirtualComponentNode extends VirtualParentNode {
         this._interface = undefined;
     }
 }
+
+

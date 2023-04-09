@@ -1,12 +1,12 @@
 import { VirtualNode } from "./node.ts";
 import { VirtualParentNode } from "./parent.ts";
 
-
 export type Hint = Text | Comment;
 
 export const createHint = (content: string): Hint =>
     // TODO: Create empty TextNode within csr-context
-    document.createComment(content);
+    ssr ? document.createComment(content)
+        : document.createTextNode("")
 
 export class VirtualFragmentNode extends VirtualParentNode {
     _hints?: [ Hint, Hint ];
@@ -37,5 +37,7 @@ export class VirtualFragmentNode extends VirtualParentNode {
         for (const hint of this._hints ?? []) {
             hint.remove();
         }
+
+        this._hints = undefined;
     }
 }

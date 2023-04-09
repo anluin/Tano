@@ -1,5 +1,5 @@
-import { dom, std } from "./deps.ts";
-import { buildAssetResponse, preloadAssets } from "./utils/assets.ts";
+import { dom, std } from "../deps.ts";
+import { buildAssetResponse, preloadAssets } from "./assets.ts";
 
 import { render } from "@ssrBundleFile";
 
@@ -132,7 +132,7 @@ export const serve = async (middlewares: Middleware[] = []) => {
     const port = Number.parseInt(rawPort);
 
     await preloadAssets("src/assets");
-    await preloadAssets(".build/assets/csr");
+    await preloadAssets(".build/assets");
 
     console.log(`Listening on http://localhost:${port}/`);
 

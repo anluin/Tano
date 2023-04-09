@@ -1,13 +1,13 @@
-import { VirtualNode } from "./node.ts";
 import { ReadonlySignal } from "../reactivity/signal.ts";
-import { VirtualSignalNode } from "./signal.ts";
-import { VirtualFragmentNode } from "./fragment.ts";
-import { VirtualTextNode } from "./text.ts";
-import { VirtualCommentNode } from "./comment.ts";
-import { VirtualComponentNode } from "./component.ts";
 import { ComponentInitializer } from "../jsx.ts";
 import { restoreAttributes, restoreChildren } from "../restore.ts";
+import { VirtualCommentNode } from "./comment.ts";
+import { VirtualTextNode } from "./text.ts";
 import { VirtualElementNode } from "./element.ts";
+import { VirtualComponentNode } from "./component.ts";
+import { VirtualFragmentNode } from "./fragment.ts";
+import { VirtualSignalNode } from "./signal.ts";
+import { VirtualNode } from "./node.ts";
 
 
 export const toVirtualNode = (value: unknown): VirtualNode => {

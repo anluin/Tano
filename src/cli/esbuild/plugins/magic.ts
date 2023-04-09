@@ -10,7 +10,6 @@ export const createMagicPlugin = (importMap?: ImportMap): esbuild.Plugin => ({
     setup(build: esbuild.PluginBuild) {
         const imports = importMap?.imports ?? {};
 
-
         const dirname = (fileName: string) => {
             if (/https?:\/\//.test(fileName)) {
                 const url = new URL(fileName);
@@ -49,6 +48,8 @@ export const createMagicPlugin = (importMap?: ImportMap): esbuild.Plugin => ({
         };
 
         build.onResolve({ filter: /.*?/ }, async (args) => {
+            if (args.path.endsWith(".webp")) return undefined;
+
             const resolveDir = args.resolveDir || dirname(args.importer);
             const resolvedPath = resolve(args.path, resolveDir);
 
@@ -67,10 +68,10 @@ export const createMagicPlugin = (importMap?: ImportMap): esbuild.Plugin => ({
         build.onLoad({ filter: /.*/, namespace: 'magic' }, async (args) => {
             const file = await cache.cache(args.path, undefined, 'deps');
             const contents = await Deno.readTextFile(file.path);
-            const ext = file.meta.url.split('.').pop()
-            const loader = ext.match(/"j|tsx?$/) ? ext : ('js' as esbuild.Loader);
+            const ext = file.meta.url.split('.').pop()!;
+            const loader = (ext?.match(/"j|tsx?$/) ? ext : 'js') as esbuild.Loader;
 
             return { contents, loader };
         });
     },
-} as const);
+});

@@ -1,4 +1,5 @@
-import { VirtualParentNode } from "./parent.ts";
+import { VirtualParentNode } from "./mod.ts";
+
 
 export abstract class VirtualNode {
     _parent?: VirtualParentNode;

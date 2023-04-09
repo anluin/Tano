@@ -5,7 +5,7 @@ A fullstack framework for Deno for easily creating (progressive) web apps.
 ## Installation
 
 ```sh
-deno install --force --name tano -A https://deno.land/x/tano@0.0.21/cli/main.ts
+deno install --force --name tano -A https://deno.land/x/tano@0.0.22/cli/main.ts
 ```
 
 ## Commands

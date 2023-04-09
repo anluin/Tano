@@ -14,6 +14,7 @@ export interface Options {
     stylesheetInjectionFilePath: string,
     jsxInjectionFilePath: string,
     sourceDirectoryPath: string,
+    assetsSourceDirectoryPath: string,
     frontendSourceDirectoryPath: string,
     mainFrontendSourceFilePath: string,
     backendSourceDirectoryPath: string,

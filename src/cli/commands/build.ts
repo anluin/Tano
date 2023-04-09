@@ -63,7 +63,7 @@ export const build = async (options: Options) => {
         export {
             createElement as __createElement,
             fragmentSymbol as __fragmentSymbol,
-        } from "https://deno.land/x/tano@0.0.21/lib/frontend/jsx.ts";
+        } from "https://deno.land/x/tano@0.0.22/lib/frontend/jsx.ts";
     `);
 
     await esbuild.build({

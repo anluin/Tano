@@ -1,6 +1,6 @@
 {
     "imports": {
-        "https://deno.land/x/tano@0.0.21/lib/": "./src/lib/"
+        "https://deno.land/x/tano@0.0.22/lib/": "./src/lib/"
     },
     "tasks": {
         "install": "deno install --force --name tano -A src/cli/main.ts"

@@ -67,6 +67,7 @@ try {
     const ssrBundleFilePath = std.path.join(buildDirectoryPath, "bundle.js");
 
     const sourceDirectoryPath = std.path.join(workspaceDirectoryPath, "src");
+    const assetsSourceDirectoryPath = std.path.join(sourceDirectoryPath, "assets");
     const frontendSourceDirectoryPath = std.path.join(sourceDirectoryPath, "frontend");
     const mainFrontendSourceFilePath = std.path.join(frontendSourceDirectoryPath, "main.tsx");
     const backendSourceDirectoryPath = std.path.join(sourceDirectoryPath, "backend");
@@ -77,6 +78,7 @@ try {
     const options: Options = {
         workspaceDirectoryPath,
         sourceDirectoryPath,
+        assetsSourceDirectoryPath,
         buildDirectoryPath,
         assetsBuildDirectoryPath,
         injectionsBuildDirectoryPath,

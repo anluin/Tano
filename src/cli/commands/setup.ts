@@ -1,5 +1,6 @@
 import type { Options } from "./mod.ts";
 import { format, ts, tsx } from "../utils/format.ts";
+import { std } from "../deps.ts";
 
 
 export const setup = async (options: Options) => {
@@ -12,6 +13,7 @@ export const setup = async (options: Options) => {
         mainBackendSourceFilePath,
         sharedSourceDirectoryPath,
         apiSharedSourceFilePath,
+        assetsSourceDirectoryPath,
     } = options;
 
     await Deno.mkdir(workspaceDirectoryPath, { recursive: true });
@@ -33,11 +35,13 @@ export const setup = async (options: Options) => {
             `);
         });
 
+    await Deno.mkdir(assetsSourceDirectoryPath, { recursive: true });
+
     await Deno.mkdir(frontendSourceDirectoryPath, { recursive: true });
     await Deno.stat(mainFrontendSourceFilePath)
         .catch(async () => {
             await Deno.writeTextFile(mainFrontendSourceFilePath, tsx`
-                import { render, Signal } from "https://deno.land/x/tano@0.0.21/lib/frontend/mod.ts";
+                import { render, Signal } from "https://deno.land/x/tano@0.0.22/lib/frontend/mod.ts";
 
                 import { api } from "../shared/api.ts";
                 
@@ -84,7 +88,7 @@ export const setup = async (options: Options) => {
     await Deno.stat(mainBackendSourceFilePath)
         .catch(async () => {
             await Deno.writeTextFile(mainBackendSourceFilePath, ts`
-                import { serve, impl } from "https://deno.land/x/tano@0.0.21/lib/backend/mod.ts";
+                import { serve, impl } from "https://deno.land/x/tano@0.0.22/lib/backend/mod.ts";
 
                 import { api } from "../shared/api.ts";
 
@@ -115,7 +119,7 @@ export const setup = async (options: Options) => {
     await Deno.stat(mainBackendSourceFilePath)
         .catch(async () => {
             await Deno.writeTextFile(mainBackendSourceFilePath, ts`
-                import { serve, impl } from "https://deno.land/x/tano@0.0.21/lib/backend/mod.ts";
+                import { serve, impl } from "https://deno.land/x/tano@0.0.22/lib/backend/mod.ts";
 
                 import { api } from "../shared/api.ts";
 
@@ -146,7 +150,7 @@ export const setup = async (options: Options) => {
     await Deno.stat(apiSharedSourceFilePath)
         .catch(async () => {
             await Deno.writeTextFile(apiSharedSourceFilePath, ts`
-                import { endpoint, number } from "https://deno.land/x/tano@0.0.21/lib/shared/api.ts";
+                import { endpoint, number } from "https://deno.land/x/tano@0.0.22/lib/shared/api.ts";
 
 
                 export const api = {

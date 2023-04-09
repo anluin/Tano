@@ -1,6 +1,4 @@
-import { VirtualNode } from "./virtual-dom/node.ts";
-import { VirtualFragmentNode } from "./virtual-dom/fragment.ts";
-import { toVirtualNode } from "./virtual-dom/utils.ts";
+import { createHint, Hint, toVirtualNode, VirtualFragmentNode, VirtualNode } from "./virtual-dom/mod.ts";
 
 export const restoreAttributes = (element: HTMLElement): Record<string, string> =>
     [ ...element.attributes ]
@@ -24,11 +22,20 @@ export const restoreChildren = (element: HTMLElement): VirtualNode[] => {
             }
 
             if (childNode.nodeValue === `fragment end`) {
+                const hints: [ Hint, Hint ] = [
+                    createHint("fragment start"),
+                    createHint("fragment end"),
+                ];
+
                 const fragment = new VirtualFragmentNode(
                     childrenStack.pop()!,
-                    [ fragmentHits.pop()!, childNode ],
+                    hints,
                 );
+
+                fragmentHits.pop()!.replaceWith(hints[0]);
+                childNode.replaceWith(hints[1]);
                 childrenStack.at(-1)!.push(fragment);
+
                 continue;
             }
         }

@@ -1,221 +1,214 @@
-export type Validate<T> = (value: unknown, diagnostics?: string[], path?: string) => value is T;
+import { JSONValue, OptionalKeys, RequiredKeys } from "./utils.ts";
 
-export type Validator<T> = {
-    validate: Validate<T>,
+
+export type Serde<T> = {
+    serialize(value: T): JSONValue;
+    deserialize(value: JSONValue): T;
 };
 
-export type Validated<T> = T extends Validator<infer X> ? X : never;
+export type SerdeOf<T> = T extends Serde<infer T> ? T : never;
 
-export const object = <T>(properties: {
-    [K in keyof T]: Validator<T[K]>
-}) => ({
-    validate: (value: unknown, diagnostics?: string[], path?: string): value is T => {
-        if (typeof value !== "object") {
-            diagnostics?.push(`${path ? `${path}: ` : ''}'${(typeof value === "object" ? value?.constructor.name : undefined) ?? typeof value}' is not assignable to type 'object'`);
-
-            return false;
-        }
-
-        if (value === null) {
-            diagnostics?.push(`${path ? `${path}: ` : ''}object is null`);
-
-            return false;
-        }
-
-        for (const propertiesKey in properties) {
-            if (
-                properties[propertiesKey]
-                    .validate(
-                        (value as Record<string, unknown>)[propertiesKey],
-                        diagnostics,
-                        diagnostics && (path ? `${path}.${propertiesKey}` : propertiesKey),
-                    )
-            ) {
-                continue;
-            }
-
-            return false;
-        }
-
-        return true;
-    },
-    get optional() {
-        return ({
-            validate: (value: unknown, diagnostics?: string[], path?: string): value is undefined | T =>
-                value === undefined || this.validate(value, diagnostics, path),
-        });
-    },
-});
-
-export const string = ({
-    validate: (value: unknown, diagnostics?: string[], path?: string): value is string => {
+export const string: Serde<string> = {
+    serialize(value) {
         if (typeof value === "string") {
-            return true;
+            return value;
         }
 
-        diagnostics?.push(`${path ? `${path}: ` : ''}'${(typeof value === "object" ? value?.constructor.name : undefined) ?? typeof value}' is not assignable to type 'string'`);
-
-        return false;
+        throw new Error();
     },
-    get optional() {
-        return ({
-            validate: (value: unknown, diagnostics?: string[], path?: string): value is undefined | string =>
-                value === undefined || this.validate(value, diagnostics, path),
-        });
-    },
-});
+    deserialize(value) {
+        if (typeof value === "string") {
+            return value;
+        }
 
-export const keyword = <T extends string>(keyword: T) => ({
-    validate: (value: unknown, diagnostics?: string[], path?: string): value is T => {
+        throw new Error();
+    },
+};
+
+export const keyword = <T extends string = string>(keyword: T): Serde<T> => ({
+    serialize(value) {
         if (value === keyword) {
-            return true;
+            return keyword;
         }
 
-        diagnostics?.push(`${path ? `${path}: ` : ''}'${(typeof value === "object" ? value?.constructor.name : undefined) ?? typeof value}' is not assignable to type 'keyword' (${keyword})`);
-
-        return false;
+        throw new Error();
     },
-    get optional() {
-        return ({
-            validate: (value: unknown, diagnostics?: string[], path?: string): value is undefined | T =>
-                value === undefined || this.validate(value, diagnostics, path),
-        });
+    deserialize(value) {
+        if (value === keyword) {
+            return keyword;
+        }
+
+        throw new Error();
     },
 });
 
-export const boolean = ({
-    validate: (value: unknown, diagnostics?: string[], path?: string): value is boolean => {
-        if (typeof value === "boolean") {
-            return true;
-        }
-
-        diagnostics?.push(`${path ? `${path}: ` : ''}'${(typeof value === "object" ? value?.constructor.name : undefined) ?? typeof value}' is not assignable to type 'boolean'`);
-
-        return false;
-    },
-    get optional() {
-        return ({
-            validate: (value: unknown, diagnostics?: string[], path?: string): value is undefined | boolean =>
-                value === undefined || this.validate(value, diagnostics, path),
-        });
-    },
-});
-
-export const number = ({
-    validate: (value: unknown, diagnostics?: string[], path?: string): value is number => {
+export const number: Serde<number> = {
+    serialize(value) {
         if (typeof value === "number") {
-            return true;
+            return value;
         }
 
-        diagnostics?.push(`${path ? `${path}: ` : ''}'${(typeof value === "object" ? value?.constructor.name : undefined) ?? typeof value}' is not assignable to type 'number'`);
-
-        return false;
+        throw new Error();
     },
-    get optional() {
-        return ({
-            validate: (value: unknown, diagnostics?: string[], path?: string): value is undefined | number =>
-                value === undefined || this.validate(value, diagnostics, path),
-        });
+    deserialize(value) {
+        if (typeof value === "number") {
+            return value;
+        }
+
+        throw new Error();
+    },
+};
+
+export const object = <T>(description: {
+    [K in keyof T]: Serde<T[K]>;
+}): Serde<{
+    [K in RequiredKeys<T>]-?: T[K];
+} & {
+    [K in OptionalKeys<T>]+?: T[K];
+}> => ({
+    serialize(object) {
+        return Object.fromEntries(
+            Object
+                .entries(description)
+                .map(([ key, value ]) => [ key, (value as any).serialize((object as any)[key]) ]),
+        );
+    },
+    deserialize(object) {
+        return <any>Object.fromEntries(
+            Object
+                .entries(description)
+                .map(([ key, value ]) => [ key, (value as any).deserialize((object as any)[key]) ]),
+        );
     },
 });
 
-export const tuple = <T extends Array<Validator<any>>>(validators: [ ...T ]) => ({
-    validate: (value: unknown, diagnostics?: string[], path?: string): value is {
-        [K in keyof T]: Validated<T[K]>;
-    } => {
-        if (!(value instanceof Array)) {
-            diagnostics?.push(`${path ? `${path}: ` : ''}'${(typeof value === "object" ? value?.constructor.name : undefined) ?? typeof value}' is not assignable to type 'tuple'`);
-
-            return false;
+export const array = <T>(descriptor: Serde<T>): Serde<T[]> => ({
+    serialize(value) {
+        return value.map(element => descriptor.serialize(element));
+    },
+    deserialize(value) {
+        if (value instanceof Array) {
+            return value.map(element => descriptor.deserialize(element));
         }
 
-        for (let index = 0; index < validators.length; index++) {
-            if (!validators[index].validate(value[index], diagnostics, `${path}[${index}]`)) {
-                return false;
+        throw new Error();
+    },
+});
+
+export const tupel = <T extends Serde<unknown>[]>(descriptor: [ ...T ]): Serde<{ [K in keyof T]: SerdeOf<T[K]> }> => ({
+    serialize(value) {
+        const result = new Array(descriptor.length);
+
+        for (let index = 0; index < descriptor.length; index++) {
+            result[index] = descriptor[index].serialize(value[index]);
+        }
+
+        return result;
+    },
+    deserialize(value) {
+        if (value instanceof Array) {
+            const result = new Array(descriptor.length) as { [K in keyof T]: SerdeOf<T[K]>; };
+
+            for (let index = 0; index < descriptor.length; index++) {
+                result[index] = descriptor[index].deserialize(value[index]);
+            }
+
+            return result;
+        }
+
+        throw new Error();
+    },
+});
+
+export const or = <T extends Serde<unknown>[]>(descriptor: [ ...T ]): Serde<SerdeOf<T[keyof T]>> => ({
+    serialize(value) {
+        let errors: unknown[] | undefined;
+
+        for (const { serialize } of descriptor) {
+            try {
+                return serialize(value);
+            } catch (error) {
+                (errors ??= []).push(error);
             }
         }
 
-        return true;
+        throw errors ?? new Error();
     },
-    get optional() {
-        return ({
-            validate: (value: unknown, diagnostics?: string[], path?: string): value is undefined | {
-                [K in keyof T]: Validated<T[K]>;
-            } =>
-                value === undefined || this.validate(value, diagnostics, path),
-        });
-    },
-});
+    deserialize(value) {
+        let errors: unknown[] | undefined;
 
-export const array = <T extends Validator<any>>(validator: T) => ({
-    validate: (value: unknown, diagnostics?: string[], path?: string): value is Validated<T>[] => {
-        if (!(value instanceof Array)) {
-            diagnostics?.push(`${path ? `${path}: ` : ''}'${(typeof value === "object" ? value?.constructor.name : undefined) ?? typeof value}' is not assignable to type 'array'`);
-
-            return false;
-        }
-
-        for (let index = 0; index < value.length; index++) {
-            if (!validator.validate(value[index], diagnostics, `${path}[${index}]`)) {
-                return false;
+        for (const { deserialize } of descriptor) {
+            try {
+                return deserialize(value) as SerdeOf<T[keyof T]>;
+            } catch (error) {
+                (errors ??= []).push(error);
             }
         }
 
-        return true;
-    },
-    get optional() {
-        return ({
-            validate: (value: unknown, diagnostics?: string[], path?: string): value is undefined | Validated<T>[] =>
-                value === undefined || this.validate(value, diagnostics, path),
-        });
+        throw errors ?? new Error();
     },
 });
 
-export const or = <T extends Array<Validator<any>>>(validators: T) => ({
-    validate: (value: unknown, diagnostics?: string[], path?: string): value is Validated<T[number]> => {
-        for (const validator of validators) {
-            if (validator.validate(value, diagnostics, path)) {
-                return true;
-            }
+export const optional = <T>(serde: Serde<T>): Serde<T | undefined> => ({
+    serialize(value) {
+        if (value === undefined) {
+            return undefined;
         }
 
-        return false;
+        return serde.serialize(value);
     },
-    get optional() {
-        return ({
-            validate: (value: unknown, diagnostics?: string[], path?: string): value is undefined | Validated<T[number]> =>
-                value === undefined || this.validate(value, diagnostics, path),
-        });
+    deserialize(value) {
+        if (value === undefined) {
+            return undefined;
+        }
+
+        return serde.deserialize(value);
     },
 });
 
-export const result: {
-    <Ok, Error>(data: { success: Validator<Ok>, failure: Validator<Error> }): {
-        validate: (value: unknown, diagnostics?: string[], path?: string) => value is ({
-            status: "success",
-            data: Ok,
-        } | {
-            status: "failure",
-            data: Error,
-        }),
+
+export const map = <T, R>(serde: Serde<T>, mapping: {
+    serialize: (value: R) => T,
+    deserialize: (value: T) => R,
+}): Serde<R> => ({
+    serialize(value) {
+        return serde.serialize(mapping.serialize(value));
     },
-    validate: (value: unknown, diagnostics?: string[], path?: string) => value is ({
-        status: "success",
-    } | {
-        status: "failure",
+    deserialize(value) {
+        return mapping.deserialize(serde.deserialize(value));
+    },
+});
+
+export const date = map(
+    object({
+        "//": keyword("Date"),
+        "utc": string,
     }),
-} = Object.assign(
-    <Ok, Error>(data: {
-        success: Validator<Ok>,
-        failure: Validator<Error>,
+    {
+        serialize(value: Date) {
+            return {
+                "//": "Date",
+                utc: value.toUTCString(),
+            };
+        },
+        deserialize(value): Date {
+            return new Date(value.utc);
+        },
+    },
+);
+
+export const result = Object.assign(
+    <Success, Failure>(descriptor: {
+        success: Serde<Success>,
+        failure: Serde<Failure>,
     }) => or([
         object({
             status: keyword("success"),
-            data: data.success,
+            data: descriptor.success,
         }),
         object({
             status: keyword("failure"),
-            data: data.failure,
+            data: descriptor.failure,
         }),
     ]),
     or([
@@ -228,64 +221,45 @@ export const result: {
     ]),
 );
 
+export const unwrap = async <Success>(result: Promise<{
+    status: "success",
+    data: Success,
+} | {
+    status: "failure",
+    data: unknown,
+}>): Promise<Success> => {
+    const awaitedResult = await result;
+
+    if (awaitedResult.status === "success") {
+        return awaitedResult.data;
+    }
+
+    throw awaitedResult.data;
+};
+
 export const endpoint = <
     Request,
     Response,
 >(definition: {
     pathname: string,
-    request?: Validator<Request>,
-    response?: Validator<Response>,
+    request?: Serde<Request>,
+    response?: Serde<Response>,
 }) =>
     Object.assign(
         (async (request: Request): Promise<Response> => {
-            const diagnostics: string[] = [];
+            const response = await fetch(definition.pathname, {
+                method: "CALL",
+                body: JSON.stringify(definition.request?.serialize(request)),
+                headers: {
+                    "Content-Type": "application/json",
+                },
+            });
 
-            if (definition.request === undefined || definition.request.validate(request, diagnostics, `[[${definition.pathname}]].request`)) {
-                const url = new URL(definition.pathname, location.href);
-                const rawResponse = await fetch(url, {
-                    method: "CALL",
-                    body: JSON.stringify(request),
-                    headers: {
-                        "Content-Type": "application/json",
-                    },
-                })
-                const jsonResponse = await rawResponse.json();
-
-                if (definition.response === undefined || definition.response.validate(jsonResponse, diagnostics, `[[${definition.pathname}]].response`)) {
-                    return jsonResponse;
-                }
-            }
-
-            throw new Error(diagnostics.join());
+            return definition.response?.deserialize(await response.json()) as Response;
         }) as (
             unknown extends Request
-                ? ((request?: Request) => Promise<Response>)
-                : ((request: Request) => Promise<Response>)
+                ? ((input?: Request) => Promise<Response>)
+                : ((input: Request) => Promise<Response>)
             ),
         definition,
     );
-
-export const unwrap = async <Success>(result: Promise<
-    { status: "success", data: Success } |
-    { status: "failure", data: any } |
-    { status: "success" } |
-    { status: "failure" }
->): Promise<unknown extends Success ? undefined : Success> => {
-    const awaitedResult = await result;
-
-    if (awaitedResult.status === "success") {
-        return (
-            "data" in awaitedResult
-                ? awaitedResult.data
-                : undefined
-        ) as unknown extends Success
-            ? undefined
-            : Success;
-    } else {
-        throw (
-            "data" in awaitedResult
-                ? awaitedResult.data
-                : "failure"
-        );
-    }
-};

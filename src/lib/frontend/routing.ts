@@ -1,6 +1,6 @@
 import { Signal } from "./reactivity/signal.ts";
 import { Effect } from "./reactivity/effect.ts";
-import { $isInstalled, globalContext } from "./reactivity/utils.ts";
+import { globalContext } from "./reactivity/context.ts";
 
 
 export const $pathname = new Signal(location.pathname);
@@ -16,11 +16,7 @@ csr && new Effect(() => {
     const pathname = $pathname.get();
 
     if (location.pathname !== pathname) {
-        if ($isInstalled.get()) {
-            history.replaceState(undefined, "", pathname);
-        } else {
-            history.pushState(undefined, "", pathname);
-        }
+        history.pushState(undefined, "", pathname);
     }
 }, globalContext)
 

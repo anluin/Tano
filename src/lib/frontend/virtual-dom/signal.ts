@@ -1,10 +1,7 @@
-import { VirtualParentNode } from "./parent.ts";
-import { VirtualNode } from "./node.ts";
-import { swap } from "../swap.ts";
 import { Effect } from "../reactivity/effect.ts";
 import { ReadonlySignal } from "../reactivity/signal.ts";
-import { toVirtualNode } from "./utils.ts";
-
+import { swap } from "../swap.ts";
+import { toVirtualNode, VirtualNode, VirtualParentNode } from "./mod.ts";
 
 export class VirtualSignalNode extends VirtualParentNode {
     private _effect: Effect;

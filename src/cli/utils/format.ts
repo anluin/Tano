@@ -1,4 +1,4 @@
-const format = (strings: TemplateStringsArray, ...expressions: (string | number)[]): string => {
+export const format = (strings: TemplateStringsArray, ...expressions: (string | number)[]): string => {
     const string = strings.slice(1).reduce((carry, string, index) => {
         const expression = expressions[index];
 

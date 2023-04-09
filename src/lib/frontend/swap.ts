@@ -1,14 +1,16 @@
-import { VirtualElementNode } from "./virtual-dom/element.ts";
-import { VirtualTextNode } from "./virtual-dom/text.ts";
-import { VirtualCommentNode } from "./virtual-dom/comment.ts";
+import {
+    VirtualCommentNode,
+    VirtualComponentNode,
+    VirtualElementNode,
+    VirtualFragmentNode,
+    VirtualNode,
+    VirtualSignalNode,
+    VirtualTextNode
+} from "./virtual-dom/mod.ts";
+import { normalize, preventEffects, Skip, useContext } from "./reactivity/utils.ts";
 import { Effect } from "./reactivity/effect.ts";
 import { ReadonlySignal, Signal } from "./reactivity/signal.ts";
-import { globalContext, normalize, preventEffects, useContext } from "./reactivity/utils.ts";
-import { VirtualComponentNode } from "./virtual-dom/component.ts";
-import { VirtualFragmentNode } from "./virtual-dom/fragment.ts";
-import { VirtualSignalNode } from "./virtual-dom/signal.ts";
-import { VirtualNode } from "./virtual-dom/node.ts";
-import { Context } from "./reactivity/context.ts";
+import { Context, globalContext } from "./reactivity/context.ts";
 
 export const swapProperty = (element: HTMLElement, propertyName: string, previousValue: unknown, nextValue: unknown) => {
     if (propertyName.startsWith("on") && (previousValue instanceof Function || nextValue instanceof Function)) {
@@ -29,11 +31,22 @@ export const swapProperty = (element: HTMLElement, propertyName: string, previou
             case "number":
                 element.setAttribute(attributeName, `${nextValue}`);
                 break;
+
             case "boolean":
-                element.toggleAttribute(attributeName, nextValue);
+                if (csr) {
+                    element.toggleAttribute(attributeName, nextValue);
+                } else {
+                    if (nextValue) {
+                        element.setAttribute(attributeName, "");
+                    } else {
+                        element.removeAttribute(attributeName);
+                    }
+                }
+
                 break;
             case "undefined":
                 element.removeAttribute(attributeName);
+
                 break;
             default:
                 throw new Error(`swapProperty is not implemented for values of type ${JSON.stringify(typeof nextValue)}`);
@@ -59,6 +72,13 @@ export const swapProperties = (element: HTMLElement, previousProperties: Record<
                     ...previousProperties,
                     ...nextProperties,
                 }) {
+                    if (propertyName === "reference" && nextProperties[propertyName] instanceof Signal) {
+                        (nextProperties[propertyName] as Signal<HTMLElement>)
+                            .set(element);
+
+                        continue;
+                    }
+
                     effects[propertyName]?._cancel();
                     delete effects[propertyName];
 
@@ -121,6 +141,8 @@ export const swapChildren = (element: HTMLElement, previousChildren: VirtualNode
 }
 
 export const swap = (previousNode: VirtualNode, nextNode: VirtualNode) => {
+    if (previousNode === nextNode) return;
+
     if (previousNode._parent && !nextNode._parent) {
         const parent = ([ nextNode._parent, previousNode._parent ] = [ previousNode._parent, undefined ])[0];
         const index = parent._children.indexOf(previousNode);
@@ -130,6 +152,16 @@ export const swap = (previousNode: VirtualNode, nextNode: VirtualNode) => {
         } else {
             throw new Error(`${previousNode.constructor?.name} is not a child of ${parent.constructor?.name}`);
         }
+    }
+
+    if (nextNode instanceof VirtualComponentNode && nextNode._initializer === Skip) {
+        Object.assign(nextNode, {
+            _initializer: () => previousNode,
+        });
+
+        swap(previousNode, nextNode);
+
+        return;
     }
 
     if (previousNode instanceof VirtualTextNode) {
@@ -263,7 +295,6 @@ export const swap = (previousNode: VirtualNode, nextNode: VirtualNode) => {
                 previousNode._finalize();
             }
         } else {
-            if (!nextNode._parent) throw new Error();
             swap(previousNode._children[0], nextNode);
             previousNode._finalize();
         }

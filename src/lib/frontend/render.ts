@@ -1,5 +1,4 @@
-import { toVirtualNode } from "./virtual-dom/utils.ts";
-import { VirtualNode } from "./virtual-dom/node.ts";
+import { toVirtualNode, VirtualNode } from "./virtual-dom/mod.ts";
 import { swap } from "./swap.ts";
 
 

@@ -1,6 +1,4 @@
-import { VirtualNode } from "./virtual-dom/node.ts";
-import { VirtualFragmentNode } from "./virtual-dom/fragment.ts";
-import { toVirtualNode } from "./virtual-dom/utils.ts";
+import { toVirtualNode, VirtualFragmentNode, VirtualNode } from "./virtual-dom/mod.ts";
 
 export const restoreAttributes = (element: HTMLElement): Record<string, string> =>
     [ ...element.attributes ]

@@ -1,14 +1,16 @@
-import { VirtualElementNode } from "./virtual-dom/element.ts";
-import { VirtualTextNode } from "./virtual-dom/text.ts";
-import { VirtualCommentNode } from "./virtual-dom/comment.ts";
+import {
+    VirtualCommentNode,
+    VirtualComponentNode,
+    VirtualElementNode,
+    VirtualFragmentNode,
+    VirtualNode,
+    VirtualSignalNode,
+    VirtualTextNode
+} from "./virtual-dom/mod.ts";
+import { normalize, preventEffects, useContext } from "./reactivity/utils.ts";
 import { Effect } from "./reactivity/effect.ts";
 import { ReadonlySignal, Signal } from "./reactivity/signal.ts";
-import { globalContext, normalize, preventEffects, useContext } from "./reactivity/utils.ts";
-import { VirtualComponentNode } from "./virtual-dom/component.ts";
-import { VirtualFragmentNode } from "./virtual-dom/fragment.ts";
-import { VirtualSignalNode } from "./virtual-dom/signal.ts";
-import { VirtualNode } from "./virtual-dom/node.ts";
-import { Context } from "./reactivity/context.ts";
+import { Context, globalContext } from "./reactivity/context.ts";
 
 export const swapProperty = (element: HTMLElement, propertyName: string, previousValue: unknown, nextValue: unknown) => {
     if (propertyName.startsWith("on") && (previousValue instanceof Function || nextValue instanceof Function)) {

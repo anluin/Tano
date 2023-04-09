@@ -1,10 +1,7 @@
 import { ComponentInitializer, ComponentInterface } from "../jsx.ts";
-import { VirtualParentNode } from "./parent.ts";
-import { VirtualNode } from "./node.ts";
-import { preventEffects, useContext } from "../reactivity/utils.ts";
 import { Context } from "../reactivity/context.ts";
-import { toVirtualNode } from "./utils.ts";
-
+import { preventEffects, useContext } from "../reactivity/utils.ts";
+import { toVirtualNode, VirtualNode, VirtualParentNode } from "./mod.ts";
 
 export class VirtualComponentNode extends VirtualParentNode {
     readonly _initializer: ComponentInitializer;
@@ -93,3 +90,5 @@ export class VirtualComponentNode extends VirtualParentNode {
         this._interface = undefined;
     }
 }
+
+

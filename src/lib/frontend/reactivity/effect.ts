@@ -15,10 +15,6 @@ export class Effect {
 
         if (!context) throw new Error("Effect can only be created inside given Context");
 
-        // if (Effect._current) {
-        //     console.warn(new Error("Sub-Effects are not well tested"));
-        // }
-
         Effect._current?._children.add(this);
 
         this._signals = new Map();

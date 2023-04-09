@@ -229,22 +229,22 @@ export const result: {
 );
 
 export const endpoint = <
-    Request,
-    Response,
+    Input,
+    Output,
 >(definition: {
     pathname: string,
-    request?: Validator<Request>,
-    response?: Validator<Response>,
+    request?: Validator<Input>,
+    response?: Validator<Output>,
 }) =>
     Object.assign(
-        (async (request: Request): Promise<Response> => {
+        (async (input: Input): Promise<Output> => {
             const diagnostics: string[] = [];
 
-            if (definition.request === undefined || definition.request.validate(request, diagnostics, `[[${definition.pathname}]].request`)) {
+            if (definition.request === undefined || definition.request.validate(input, diagnostics, `[[${definition.pathname}]].request`)) {
                 const url = new URL(definition.pathname, location.href);
                 const rawResponse = await fetch(url, {
                     method: "CALL",
-                    body: JSON.stringify(request),
+                    body: JSON.stringify(input),
                     headers: {
                         "Content-Type": "application/json",
                     },
@@ -258,9 +258,9 @@ export const endpoint = <
 
             throw new Error(diagnostics.join());
         }) as (
-            unknown extends Request
-                ? ((request?: Request) => Promise<Response>)
-                : ((request: Request) => Promise<Response>)
+            unknown extends Input
+                ? ((input?: Input) => Promise<Output>)
+                : ((input: Input) => Promise<Output>)
             ),
         definition,
     );
@@ -289,3 +289,4 @@ export const unwrap = async <Success>(result: Promise<
         );
     }
 };
+

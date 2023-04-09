@@ -1,4 +1,4 @@
-import { ComputedSignal, ReadonlySignal, Signal } from "./signal.ts";
+import { ReadonlySignal, Signal } from "./signal.ts";
 import { Context } from "./context.ts";
 import { Effect } from "./effect.ts";
 
@@ -7,7 +7,6 @@ export type Normalized<T> = T extends ReadonlySignal<infer I> ? I : T;
 
 export type ClassList = (string | undefined | ReadonlySignal<string | undefined> | Record<string, boolean | undefined | ReadonlySignal<boolean | undefined>> | ClassList)[];
 
-export const globalContext = new Context();
 export const useContext = <T>(context: Context | undefined, callback: () => T): T => {
     const previousContext = Context._current;
     Context._current = context;
@@ -26,9 +25,6 @@ export const useEffects = <T>(effect: Effect | undefined, callback: () => T): T 
 
 export const preventEffects = <T>(callback: () => T): T =>
     useEffects(undefined, callback);
-
-export const computed = <T>(callback: () => T, context?: Context): ReadonlySignal<T> =>
-    new ComputedSignal(callback, context);
 
 export const normalize = <T>(value: T): Normalized<T> =>
     value instanceof ReadonlySignal ? value.get() : value;
@@ -52,7 +48,6 @@ export const createSignalFromMediaQuery = (
             }
         }
 )();
-
 
 export const processClassList = (classList: ClassList): string[] => (
     classList.reduce<string[]>(
@@ -87,5 +82,3 @@ export const processClassList = (classList: ClassList): string[] => (
         [],
     )
 );
-
-export const $isInstalled = createSignalFromMediaQuery("(display-mode: standalone)", false);

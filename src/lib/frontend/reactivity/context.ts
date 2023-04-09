@@ -1,5 +1,6 @@
 import { Effect } from "./effect.ts";
 
+
 export class Context {
     static _current?: Context;
 
@@ -27,3 +28,5 @@ export class Context {
         }
     }
 }
+
+export const globalContext = new Context();

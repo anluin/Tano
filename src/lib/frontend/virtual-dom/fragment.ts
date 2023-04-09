@@ -1,7 +1,6 @@
 import { VirtualNode } from "./node.ts";
 import { VirtualParentNode } from "./parent.ts";
 
-
 export type Hint = Text | Comment;
 
 export const createHint = (content: string): Hint =>

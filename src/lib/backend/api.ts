@@ -1,5 +1,5 @@
-import { Middleware } from "./serve.ts";
 import { Validator } from "../shared/api.ts";
+import { Middleware } from "./serve.ts";
 
 
 export type Cookies = Partial<Record<string, string>>;

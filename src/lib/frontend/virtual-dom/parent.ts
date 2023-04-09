@@ -1,6 +1,5 @@
 import { VirtualNode } from "./node.ts";
 
-
 export abstract class VirtualParentNode extends VirtualNode {
     readonly _children: VirtualNode[];
 

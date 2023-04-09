@@ -15,10 +15,6 @@ export class Effect {
 
         if (!context) throw new Error("Effect can only be created inside given Context");
 
-        // if (Effect._current) {
-        //     console.warn(new Error("Sub-Effects are not well tested"));
-        // }
-
         Effect._current?._children.add(this);
 
         this._signals = new Map();
@@ -53,7 +49,7 @@ export class Effect {
         }
     }
 
-    _cancel() {
+    _reset() {
         for (const [ signal ] of this._signals) {
             signal._effects.delete(this);
         }
@@ -62,14 +58,20 @@ export class Effect {
             child._cancel();
         }
 
-        this._context._effects.delete(this);
         this._children.clear();
         this._signals.clear();
     }
 
+    _cancel() {
+        this._context._effects.delete(this);
+        this._reset();
+        this._restore = this._trigger = () => {
+            throw new Error("An attempt was made to trigger an effect that was cancelled!");
+        };
+    }
+
     _trigger() {
-        this._cancel();
-        this._context._effects.add(this);
+        this._reset();
         useEffects(this, this._callback);
     }
 }

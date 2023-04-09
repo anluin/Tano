@@ -1,21 +1,16 @@
-import { std } from "../deps.ts";
+import { Options } from "./mod.ts";
 
-export interface Options {
-    port: number,
-}
 
-export async function serve(workspaceDirectoryPath: string, options: Options) {
-    const denoConfigFilePath = std.path.join(workspaceDirectoryPath, "deno.json");
-    const sourceDirectoryPath = std.path.join(workspaceDirectoryPath, "src");
-    const backendDirectoryPath = std.path.join(sourceDirectoryPath, "backend");
-    const backendMainFilePath = std.path.join(backendDirectoryPath, "main.ts");
-
-    const buildDirectoryPath = std.path.join(workspaceDirectoryPath, ".build");
-    const injectionsBuildDirectoryPath = std.path.join(buildDirectoryPath, "injections");
-    const importMapInjectionFilePath = std.path.join(injectionsBuildDirectoryPath, "importMap.json");
+export const serve = async (options: Options) => {
+    const {
+        workspaceDirectoryPath,
+        denoConfigFilePath,
+        injectedImportMapFilePath,
+        mainBackendSourceFilePath,
+    } = options;
 
     const process = Deno.run({
-        cmd: [ "deno", "run", "--config", denoConfigFilePath, "--check", "--importmap", importMapInjectionFilePath, "-A", backendMainFilePath, "--port", options.port ],
+        cmd: [ "deno", "run", "--unstable", "--config", denoConfigFilePath, "--check", "--importmap", injectedImportMapFilePath, "-A", mainBackendSourceFilePath, "--port", JSON.stringify(options.port) ],
         cwd: workspaceDirectoryPath,
     });
 
@@ -24,4 +19,4 @@ export async function serve(workspaceDirectoryPath: string, options: Options) {
     if (!success) {
         throw new Error();
     }
-}
+};

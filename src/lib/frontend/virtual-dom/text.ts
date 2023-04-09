@@ -1,6 +1,5 @@
 import { VirtualNode } from "./node.ts";
 
-
 export class VirtualTextNode extends VirtualNode {
     readonly _content: string;
 

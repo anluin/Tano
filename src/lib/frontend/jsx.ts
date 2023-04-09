@@ -1,15 +1,14 @@
-import { VirtualNode } from "./virtual-dom/node.ts";
-import { VirtualElementNode } from "./virtual-dom/element.ts";
-import { VirtualComponentNode } from "./virtual-dom/component.ts";
-import { VirtualFragmentNode } from "./virtual-dom/fragment.ts";
 import { ReadonlySignal, Signal } from "./reactivity/signal.ts";
+import { OptionalKeys, RequiredKeys } from "../shared/utils.ts";
 import { ClassList } from "./reactivity/utils.ts";
-import { toVirtualNode } from "./virtual-dom/utils.ts";
+import {
+    toVirtualNode,
+    VirtualComponentNode,
+    VirtualElementNode,
+    VirtualFragmentNode,
+    VirtualNode
+} from "./virtual-dom/mod.ts";
 
-
-export type KeysOfType<T, U> = { [K in keyof T]: T[K] extends U ? K : never }[keyof T];
-export type RequiredKeys<T> = Exclude<KeysOfType<T, Exclude<T[keyof T], undefined>>, undefined>;
-export type OptionalKeys<T> = Exclude<keyof T, RequiredKeys<T>>;
 
 declare global {
     namespace JSX {
@@ -24,6 +23,7 @@ declare global {
             classList?: ClassList,
             onClick?: MouseEventListener,
             style?: string,
+            reference?: Signal<HTMLElement | undefined>,
         } & Additional>;
 
         interface IntrinsicElements {
@@ -44,6 +44,7 @@ declare global {
 
             html: Properties<{
                 class?: string,
+                style?: string,
                 lang?: string,
             }>,
             head: Properties<{}>,
@@ -89,7 +90,7 @@ declare global {
             }>,
         }
 
-        type Element = VirtualNode | ReadonlySignal<Element> | (() => JSX.Element);
+        type Element = unknown;
     }
 
     const React: undefined;

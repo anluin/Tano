@@ -1,10 +1,9 @@
-import { VirtualParentNode } from "./parent.ts";
+import { computed, ReadonlySignal } from "../reactivity/signal.ts";
+import { ClassList, normalize, processClassList } from "../reactivity/utils.ts";
+import { handleAnchorClick } from "../routing.ts";
 import { swapChildren, swapProperties } from "../swap.ts";
-import { handleAnchorClick } from "../router.ts";
-import { ClassList, computed, normalize, processClassList } from "../reactivity/utils.ts";
-import { ReadonlySignal } from "../reactivity/signal.ts";
 import { VirtualNode } from "./node.ts";
-
+import { VirtualParentNode } from "./parent.ts";
 
 export class VirtualElementNode extends VirtualParentNode {
     readonly _tagName: string;

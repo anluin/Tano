@@ -1,6 +1,6 @@
 import { Effect } from "./effect.ts";
-import { Context } from "./context.ts";
-import { computed, globalContext } from "./utils.ts";
+import { Context, globalContext } from "./context.ts";
+
 
 export class ReadonlySignal<T> {
     readonly _effects: Set<Effect>;
@@ -69,3 +69,6 @@ export class ComputedSignal<T> extends ReadonlySignal<T> {
         this._effect = new Effect(() => this.set(callback()), context);
     }
 }
+
+export const computed = <T>(callback: () => T, context?: Context): ReadonlySignal<T> =>
+    new ComputedSignal(callback, context);

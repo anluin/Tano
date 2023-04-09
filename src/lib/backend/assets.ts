@@ -1,6 +1,6 @@
-import { std } from "../deps.ts";
 import { fileExtension2MimeType } from "./mimeTypes.ts";
-import { Middleware } from "../serve.ts";
+import { Middleware } from "./serve.ts";
+import { std } from "../deps.ts";
 
 
 const assets: Record<string, Response> = {};
